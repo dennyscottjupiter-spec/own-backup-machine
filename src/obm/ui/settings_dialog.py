@@ -1,7 +1,7 @@
 # ---
 # purpose: edit config.toml -- destination, extra roots/excludes, USN toggle, archive/UI knobs
 # exports: open_settings_dialog()
-# depends: config.py
+# depends: config.py, ui/dialog.py
 # ---
 from __future__ import annotations
 
@@ -11,14 +11,13 @@ from typing import Callable
 import customtkinter as ctk
 
 from .. import config as config_mod
-from . import theme
+from . import dialog, theme
 
 
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, master: ctk.CTk, cfg: config_mod.Config, on_saved: Callable[[config_mod.Config], None]) -> None:
         super().__init__(master)
         self.title("Settings")
-        self.geometry("520x600")
         self.configure(fg_color=theme.BG)
         self._on_saved = on_saved
 
@@ -43,6 +42,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self._excludes_box = self._build_text_box("Extra excludes (one path per line)", cfg.extra_excludes)
 
         ctk.CTkButton(self, text="Save", command=self._save, fg_color=theme.SUCCESS).pack(side="bottom", pady=12)
+
+        dialog.place_over(self, master, 520, 600)
 
     def _build_destination_row(self) -> None:
         ctk.CTkLabel(self, text="Destination", text_color=theme.TEXT, font=theme.body_font()).pack(

@@ -1,7 +1,7 @@
 # ---
 # purpose: browse past runs and delete their archives -- state/history.py has no UI of its own
 # exports: open_history_dialog()
-# depends: state/history.py, humanize.py
+# depends: state/history.py, humanize.py, ui/dialog.py
 # ---
 from __future__ import annotations
 
@@ -10,19 +10,19 @@ import customtkinter as ctk
 from .. import humanize
 from ..models import RunRecord
 from ..state import history
-from . import theme
+from . import dialog, theme
 
 
 class HistoryDialog(ctk.CTkToplevel):
     def __init__(self, master: ctk.CTk) -> None:
         super().__init__(master)
         self.title("Run history")
-        self.geometry("640x420")
         self.configure(fg_color=theme.BG)
 
         self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.list_frame.pack(fill="both", expand=True, padx=12, pady=12)
         self._refresh()
+        dialog.place_over(self, master, 640, 420)
 
     def _refresh(self) -> None:
         for child in self.list_frame.winfo_children():
@@ -42,7 +42,7 @@ class HistoryDialog(ctk.CTkToplevel):
 
         text = (
             f"{record.started_utc}  —  {record.status}\n"
-            f"{record.file_count} files, {humanize.size(record.total_bytes)}\n"
+            f"{humanize.count(record.file_count)} files, {humanize.size(record.total_bytes)}\n"
             f"{record.archive_path}"
         )
         ctk.CTkLabel(
