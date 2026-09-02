@@ -72,6 +72,10 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
 - **`ui/`** — CustomTkinter. Scans and treemap layout run on a `Worker` thread and come back
   through a queue; Tk widgets are touched only from the Tk thread. `charts/squarify.py` and
   `charts/treemap_layout.py` are pure geometry with zero tkinter imports.
+  `panel_header.py` builds every panel's title row, including the ⤢ Expand button that reopens
+  that panel class full-size via `dialog.open_panel_window()`. `dialog.py` owns all Toplevel
+  sizing, centring and raise-to-front — CustomTkinter's deferred internal update undoes a
+  `lift()` issued at construction, so the raise **must** be re-issued from an `after()` callback.
 
 ### Invariants worth not breaking
 
