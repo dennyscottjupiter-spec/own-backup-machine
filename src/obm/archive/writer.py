@@ -40,6 +40,7 @@ def write_archive(
     dest_dir: str,
     archive_filename: str,
     on_progress: Callable[[int, int], None] | None = None,
+    on_stage: Callable[[str], None] | None = None,
 ) -> str:
     backend = _BACKENDS[tool.name]
     os.makedirs(dest_dir, exist_ok=True)
@@ -48,11 +49,19 @@ def write_archive(
     partial = final + ".part"
     staging = os.path.join(tempfile.gettempdir(), archive_filename)
 
+    def say(text: str) -> None:
+        if on_stage:
+            on_stage(text)
+
+    say(f"Compressing {len(files)} files to {staging}")
     backend.create(tool.exe_path, level, staging, files, on_progress)
     try:
+        say("Verifying the archive")
         if not backend.verify(tool.exe_path, staging):
             raise RuntimeError("archive failed verification, aborting")
+        say(f"Copying to {dest_dir}")
         shutil.copyfile(staging, partial)
+        say("Renaming into place")
         os.replace(partial, final)
     finally:
         if os.path.exists(staging):

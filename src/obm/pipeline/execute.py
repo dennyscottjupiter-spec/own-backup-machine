@@ -84,6 +84,7 @@ def run(
     cfg: config_mod.Config,
     result: DryRunResult | None = None,
     on_progress: Callable[[int, int], None] | None = None,
+    on_stage: Callable[[str], None] | None = None,
 ) -> RunRecord:
     """`result` lets a caller (the UI) pass its already-scanned, checkbox-edited DryRunResult
     instead of triggering a second, independent scan that would silently discard any
@@ -91,17 +92,33 @@ def run(
     run_started = datetime.now(timezone.utc)
     run_id = naming.run_id_for(run_started)
 
+    def say(text: str) -> None:
+        if on_stage:
+            on_stage(text)
+
     if result is None:
+        say("Scanning for changed files")
         result = dryrun.run(cfg)
     kept = selection.selected_files(result.candidates)
+
+    say(f"Checking {humanize.count(len(kept))} files for locks")
     to_archive, newly_carried = _preflight(kept)
+    if newly_carried:
+        say(f"{humanize.count(len(newly_carried))} locked or denied — carried over to the next run")
 
     tool = detect.detect()
+    say(f"Using {tool.name} at compression level {cfg.archive_level}")
     writer.cleanup_stale_parts(cfg.destination_path)
     archive_filename = naming.archive_name(tool.name, run_started)
 
     final_path = writer.write_archive(
-        tool, cfg.archive_level, [c.path for c in to_archive], cfg.destination_path, archive_filename, on_progress
+        tool,
+        cfg.archive_level,
+        [c.path for c in to_archive],
+        cfg.destination_path,
+        archive_filename,
+        on_progress,
+        on_stage,
     )
 
     finished = datetime.now(timezone.utc)
@@ -116,12 +133,14 @@ def run(
         issue_count=len(result.issues) + len(newly_carried),
     )
 
+    say("Writing the manifest")
     manifest.write(final_path + ".manifest.json", manifest.build(record, to_archive, result.issues))
 
     # Commit cursors + fingerprints + history + carryover as one unit, only now that
     # the archive is verified and renamed into place. Every completed run -- walk or usn --
     # re-baselines the journal snapshot so a future usn-enabled run has a fresh, valid cursor
     # to resume from, per the cursor-validation ladder in state/cursors.py.
+    say("Committing cursors, fingerprints, history and carryover")
     app_state = state_store.load()
     now_iso = cursors_mod.now_iso()
     for plan in result.plans:

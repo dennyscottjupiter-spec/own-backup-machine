@@ -38,6 +38,13 @@ against production data.
       `.part` and retry cleanly.
 - [ ] A genuine path over 260 characters is archived and restores correctly.
 
+## Destination picker
+
+- [ ] The run bar's **Save to** dropdown lists the real mapped NAS letter, and picking it writes
+      `[destination] path` into `config.toml` immediately (no Settings round-trip).
+- [ ] `X:` is still offered while the NAS is disconnected, and a run against it fails with a
+      readable message rather than a traceback.
+
 ## Hard part 4 — carryover
 
 - [ ] With a Word document open and a database engine running, start a `--run`. Both land in the
@@ -51,3 +58,6 @@ against production data.
       the real one.
 - [ ] UI stays responsive scanning the real `C:` (100k+ files) — no freeze while the worker
       thread scans, lays out the treemap, or archives.
+- [ ] During a real multi-minute archive the run window keeps animating and its stage log
+      advances past "Compressing" — the compression stage is one long blocking call in the
+      backend, so it is the one that would expose a frozen UI.
