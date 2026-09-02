@@ -13,6 +13,7 @@ from .. import config as config_mod
 from ..pipeline import dryrun, execute
 from . import theme
 from .bigfiles_panel import BigFilesPanel
+from .charts.treemap_view import TreemapPanel
 from .issues_panel import IssuesPanel
 from .progress import ProgressState
 from .runbar import RunBar
@@ -39,23 +40,27 @@ class MainWindow(ctk.CTk):
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=12, pady=6)
         body.grid_columnconfigure(0, weight=1)
-        body.grid_columnconfigure(1, weight=1)
+        body.grid_columnconfigure(1, weight=2)
         body.grid_rowconfigure(0, weight=1)
 
-        self.summary_panel = SummaryPanel(body)
-        self.summary_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        left = ctk.CTkFrame(body, fg_color="transparent")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        left.grid_rowconfigure(0, weight=1)
+        left.grid_rowconfigure(1, weight=1)
+        left.grid_rowconfigure(2, weight=1)
+        left.grid_columnconfigure(0, weight=1)
 
-        right = ctk.CTkFrame(body, fg_color="transparent")
-        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
-        right.grid_rowconfigure(0, weight=1)
-        right.grid_rowconfigure(1, weight=1)
-        right.grid_columnconfigure(0, weight=1)
+        self.summary_panel = SummaryPanel(left)
+        self.summary_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
 
-        self.bigfiles_panel = BigFilesPanel(right)
-        self.bigfiles_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
+        self.bigfiles_panel = BigFilesPanel(left)
+        self.bigfiles_panel.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
 
-        self.issues_panel = IssuesPanel(right)
-        self.issues_panel.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
+        self.issues_panel = IssuesPanel(left)
+        self.issues_panel.grid(row=2, column=0, sticky="nsew")
+
+        self.treemap_panel = TreemapPanel(body)
+        self.treemap_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
         self.runbar = RunBar(self, on_run=self.start_run)
         self.runbar.pack(fill="x", padx=12, pady=(6, 12))
@@ -81,6 +86,7 @@ class MainWindow(ctk.CTk):
         self.summary_panel.update_result(self.result)
         self.bigfiles_panel.update_result(self.result)
         self.issues_panel.update_result(self.result)
+        self.treemap_panel.update_result(self.result)
         self.runbar.update_result(self.result)
         self.topbar.set_status("Ready")
         self.runbar.set_enabled(True)
