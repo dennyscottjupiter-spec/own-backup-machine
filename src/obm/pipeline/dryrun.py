@@ -11,29 +11,51 @@ from .. import config as config_mod
 from .. import humanize
 from ..filter import classify, matcher
 from ..models import CandidateFile, DryRunResult
+from ..scan import confirm as confirm_mod
 from ..scan import issues as issues_mod
 from ..scan import plan as plan_mod
 from ..scan import walk_scanner
+from ..state import carryover
+from ..state import cursors as cursors_mod
+from ..state import store as state_store
+from ..state.fingerprints import Fingerprints
 from ..winapi import volumes
 from . import aggregate
 
 
 def run(cfg: config_mod.Config) -> DryRunResult:
     vols = volumes.list_volumes()
-    plans = plan_mod.build_plan(vols, cfg)
+    app_state = state_store.load()
+    cutoffs = {
+        v.guid_path: cursors_mod.walk_cutoff_ns(app_state.volumes.get(v.guid_path))
+        for v in vols
+    }
+    plans = plan_mod.build_plan(vols, cfg, cutoffs=cutoffs)
 
     candidates: list[CandidateFile] = []
     all_issues = []
-    for p in plans:
-        for item in walk_scanner.scan(p):
-            if isinstance(item, CandidateFile):
-                keep, rule = matcher.match(item.path, cfg.extra_excludes)
-                item.verdict = "keep" if keep else "drop"
-                item.drop_rule = rule
-                item.tags = classify.classify_tags(item.attributes, item.size, cfg.big_file_mb)
-                candidates.append(item)
-            else:
-                all_issues.append(item)
+    with Fingerprints() as fp:
+        for p in plans:
+            for item in walk_scanner.scan(p):
+                if isinstance(item, CandidateFile):
+                    item.tags = classify.classify_tags(item.attributes, item.size, cfg.big_file_mb)
+                    if confirm_mod.confirm(item, fp, cfg.hash_max_mb):
+                        keep, rule = matcher.match(item.path, cfg.extra_excludes)
+                        item.verdict = "keep" if keep else "drop"
+                        item.drop_rule = rule
+                    else:
+                        item.verdict = "drop"
+                        item.drop_rule = "unchanged-fingerprint"
+                    candidates.append(item)
+                else:
+                    all_issues.append(item)
+
+    for carried in carryover.to_candidates(carryover.load()):
+        carried.tags = classify.classify_tags(
+            carried.attributes, carried.size, cfg.big_file_mb, existing=carried.tags
+        )
+        carried.verdict = "keep"
+        candidates.append(carried)
 
     return DryRunResult(candidates=candidates, issues=all_issues, plans=plans)
 
