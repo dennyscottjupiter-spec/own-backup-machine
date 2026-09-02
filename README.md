@@ -9,10 +9,12 @@ a dark dashboard with charts and a treemap of exactly what is about to be backed
 Delta-only backup engines already exist (restic, Kopia, rclone, Syncthing...). What this adds:
 
 - **Automatic content-aware junk filtering** — a built-in blocklist (`node_modules`, build
-  output, `AppData\Local\Temp`, `.git`, `thumbs.db`, ...) instead of hand-written exclude globs.
+  output, `AppData\Local\Temp`, `.git`, `thumbs.db`, reinstallable binaries like `.exe`/`.dll`,
+  VM and WSL disk images like `.vhdx`, ...) instead of hand-written exclude globs.
   Anything not recognized is **kept**, never silently dropped.
 - **A dry-run visualization dashboard** — a squarified treemap and category charts of what a run
-  would actually archive, before it touches anything.
+  would actually archive, before it touches anything, plus a "back up only these kinds"
+  per-category selector in the Summary panel.
 
 ## Requirements
 

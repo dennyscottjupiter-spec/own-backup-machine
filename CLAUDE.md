@@ -76,10 +76,18 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   that panel class full-size via `dialog.open_panel_window()`. `dialog.py` owns all Toplevel
   sizing, centring and raise-to-front — CustomTkinter's deferred internal update undoes a
   `lift()` issued at construction, so the raise **must** be re-issued from an `after()` callback.
+  `type_filter.py` is the Summary panel's "back up only these kinds" selector: it writes
+  `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
+  panel and the run bar from its `on_change` callback.
 
 ### Invariants worth not breaking
 
 - **Nothing outside `ui/` may import from `ui/`** — enforced by `tests/test_import_boundaries.py`.
+  The one exemption is `__main__.py`, the composition root, which imports `ui/window.py` *inside*
+  `main()` so a headless `--run` never imports tkinter.
+- **Fixed strips are packed before the expanding body** in `ui/window.py`. The dashboard's natural
+  height exceeds a laptop screen; a bar packed *after* an `expand=True` sibling finds an exhausted
+  cavity and Tk leaves it **unmapped** — no error, just an invisible widget.
 - **OneDrive placeholders are never archived** and never counted in kept bytes. `FILE_ATTRIBUTE_PINNED`
   means *locally present*, so it must not gate placeholder detection (`filter/classify.py`).
 - **Never pre-check elevation before opening the USN journal** — attempt the open and treat failure
