@@ -14,7 +14,7 @@ Pure stdlib except `customtkinter==5.2.2`. Win32 access is `ctypes` against `ker
 ## Commands
 
 ```powershell
-python3 -m pytest                    # full suite (88 tests, <2s, no Windows privileges needed)
+python3 -m pytest                    # full suite (108 tests, <2s, no Windows privileges needed)
 python3 -m pytest tests/test_confirm.py::test_name -q   # single test
 python3 -m pip install -e .[dev]     # dev install (pyproject sets pythonpath=src, so tests run without it)
 
@@ -62,7 +62,7 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   judged identically to walked ones. An unrecognized extension is **kept**, never dropped.
 - **`pipeline/`** — `dryrun.run()` produces the `DryRunResult` everything else consumes;
   `execute.run()` archives and then commits cursors + fingerprints + history + carryover as one
-  unit, only after a verified write. `aggregate.py` is the read-only summary used by CLI and UI.
+  unit, only after a verified write, narrating each step through its `on_stage` callback. `aggregate.py` is the read-only summary used by CLI and UI.
 - **`archive/`** — three backends with an identical `create()`/`verify()` signature, chosen by
   `detect.py`. `writer.py` compresses to local disk, verifies, copies to the destination as
   `.part`, then `os.replace`s it.
@@ -79,6 +79,10 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   `type_filter.py` is the Summary panel's "back up only these kinds" selector: it writes
   `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
   panel and the run bar from its `on_change` callback.
+  `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` plus a
+  folder browser, and `window.py` persists each pick to `config.toml` immediately.
+  `run_dialog.py` + `hourglass.py` are the live run window: the pipeline's `on_stage` messages
+  land in `ProgressState` and the poll loop replays them as a stage log.
 
 ### Invariants worth not breaking
 

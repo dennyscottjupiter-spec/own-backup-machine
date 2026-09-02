@@ -15,6 +15,11 @@ Delta-only backup engines already exist (restic, Kopia, rclone, Syncthing...). W
 - **A dry-run visualization dashboard** — a squarified treemap and category charts of what a run
   would actually archive, before it touches anything, plus a "back up only these kinds"
   per-category selector in the Summary panel.
+- **A destination picker in the run bar** — every writable drive (defaulting to `X:`) plus a
+  folder browser, saved back to `config.toml` the moment you pick one.
+- **A live run window** — an hourglass and a running log of exactly what the archive step is
+  doing (lock check, compression, verification, copy, state commit), and a Copy button on the
+  Issues panel that puts every issue on the clipboard for pasting into a bug report.
 
 ## Requirements
 
@@ -36,7 +41,7 @@ Double-click `run.bat`. That's it — no install step required; it sets `PYTHONP
   path (`scan.use_usn = true` in `config.toml`).
 
 First run creates `%LOCALAPPDATA%\own-backup-machine\config.toml` from `config.example.toml`.
-Open it and set `[destination] path` to where backups should land, then use the **Settings**
+Pick where backups land with the **Save to** dropdown in the run bar, and use the **Settings**
 button in the app (or edit the file directly) for everything else.
 
 ## CLI
