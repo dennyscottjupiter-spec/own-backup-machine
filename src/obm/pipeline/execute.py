@@ -16,6 +16,7 @@ from .. import config as config_mod
 from .. import humanize
 from ..archive import detect, manifest, naming, writer
 from ..models import CandidateFile, DryRunResult, RunRecord
+from ..scan import usn_journal
 from ..state import carryover
 from ..state import cursors as cursors_mod
 from ..state import history
@@ -63,6 +64,22 @@ def _preflight(candidates: list[CandidateFile]) -> tuple[list[CandidateFile], li
     return ready, carried
 
 
+def _snapshot_journal(letter: str) -> tuple[int, int]:
+    """Current (journal_id, next_usn) for a volume, or (0, 0) if it has no usable journal --
+    that's harmless since build_plan() only consults these fields for usn_capable volumes."""
+    try:
+        handle = usn_journal.open_volume(letter)
+    except OSError:
+        return 0, 0
+    try:
+        info = usn_journal.query_journal(handle)
+    except OSError:
+        return 0, 0
+    finally:
+        k32.CloseHandle(handle)
+    return info.journal_id, info.next_usn
+
+
 def run(
     cfg: config_mod.Config,
     result: DryRunResult | None = None,
@@ -102,11 +119,14 @@ def run(
     manifest.write(final_path + ".manifest.json", manifest.build(record, to_archive, result.issues))
 
     # Commit cursors + fingerprints + history + carryover as one unit, only now that
-    # the archive is verified and renamed into place.
+    # the archive is verified and renamed into place. Every completed run -- walk or usn --
+    # re-baselines the journal snapshot so a future usn-enabled run has a fresh, valid cursor
+    # to resume from, per the cursor-validation ladder in state/cursors.py.
     app_state = state_store.load()
     now_iso = cursors_mod.now_iso()
     for plan in result.plans:
-        cursors_mod.mark_run(app_state, plan.guid_path, plan.letter, now_iso)
+        journal_id, next_usn = _snapshot_journal(plan.letter)
+        cursors_mod.mark_run(app_state, plan.guid_path, plan.letter, now_iso, journal_id, next_usn)
     state_store.save(app_state)
 
     with Fingerprints() as fp:
