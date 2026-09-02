@@ -1,0 +1,22 @@
+[project]
+name = "own-backup-machine"
+version = "0.1.0"
+description = "Delta-only Windows backup with a dry-run dashboard and treemap"
+requires-python = ">=3.11"
+dependencies = [
+    "customtkinter==5.2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

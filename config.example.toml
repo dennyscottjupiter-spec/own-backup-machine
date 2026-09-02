@@ -1,0 +1,25 @@
+# own-backup-machine config template.
+# Copied to %LOCALAPPDATA%\own-backup-machine\config.toml on first run.
+
+[destination]
+# Path to back up to (e.g. a mapped NAS drive letter). Required.
+path = "X:\\backups\\own-backup-machine"
+
+[scan]
+# Extra folders to include beyond the auto-detected user profile roots.
+extra_roots = []
+# Extra folders to exclude, on top of the built-in blocklist.
+extra_excludes = []
+# Use the NTFS USN journal when available. Kept off until --compare-scanners
+# has been run clean on this machine (see docs/manual-verification.md).
+use_usn = false
+
+[archive]
+# 7z/rar compression level 0-9 (0 = store only, fastest).
+level = 5
+# Files at or above this size (MB) are never content-hashed for confirmation.
+hash_max_mb = 512
+
+[ui]
+# Files at or above this size (MB) default to a checked "big file" checkbox.
+big_file_mb = 100
