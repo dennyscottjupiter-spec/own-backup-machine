@@ -48,6 +48,11 @@ class MainWindow(ctk.CTk):
         )
         self.topbar.pack(fill="x", padx=12, pady=(12, 6))
 
+        # packed before the body so the packer reserves its strip first: the body's natural
+        # height exceeds any laptop screen, and a bar packed after it is silently left unmapped
+        self.runbar = RunBar(self, on_run=self.start_run)
+        self.runbar.pack(side="bottom", fill="x", padx=12, pady=(6, 12))
+
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=12, pady=6)
         body.grid_columnconfigure(0, weight=1)
@@ -56,12 +61,18 @@ class MainWindow(ctk.CTk):
 
         left = ctk.CTkFrame(body, fg_color="transparent")
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        left.grid_rowconfigure(0, weight=1)
+        # Summary scrolls internally, so it needs a floor rather than a share of the leftovers;
+        # the two list panels below split whatever is left
+        left.grid_rowconfigure(0, weight=0, minsize=320)
         left.grid_rowconfigure(1, weight=1)
         left.grid_rowconfigure(2, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
-        self.summary_panel = SummaryPanel(left, on_expand=lambda: self._expand("Summary", SummaryPanel))
+        self.summary_panel = SummaryPanel(
+            left,
+            on_expand=lambda: self._expand("Summary", SummaryPanel),
+            on_selection_change=self._on_selection_change,
+        )
         self.summary_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
 
         self.bigfiles_panel = BigFilesPanel(
@@ -77,10 +88,15 @@ class MainWindow(ctk.CTk):
         self.treemap_panel = TreemapPanel(body, on_expand=lambda: self._expand("Treemap", TreemapPanel))
         self.treemap_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
-        self.runbar = RunBar(self, on_run=self.start_run)
-        self.runbar.pack(fill="x", padx=12, pady=(6, 12))
-
         self.start_scan()
+
+    def _on_selection_change(self) -> None:
+        # the type filter mutates CandidateFile.selected directly, so the panels bound to those
+        # same records have to be redrawn from their current state
+        if self.result is None:
+            return
+        self.bigfiles_panel.update_result(self.result)
+        self.runbar.update_result(self.result)
 
     def _expand(self, title: str, factory) -> None:
         dialog.open_panel_window(self, title, factory, self.result)

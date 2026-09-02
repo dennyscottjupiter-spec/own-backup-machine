@@ -15,8 +15,9 @@ from .canvas_base import color_for_category
 
 
 class BarChart(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTkBaseClass) -> None:
-        super().__init__(master, fg_color="transparent")
+    def __init__(self, master: ctk.CTkBaseClass, height: int = 140) -> None:
+        super().__init__(master, fg_color="transparent", height=height)
+        self.pack_propagate(False)
         self.canvas = tk.Canvas(self, bg=theme.PANEL_BG, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Configure>", lambda e: self._redraw())
