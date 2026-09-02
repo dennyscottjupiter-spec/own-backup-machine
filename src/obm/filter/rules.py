@@ -37,4 +37,5 @@ CATEGORIES = {  # display grouping ONLY — never causes a drop
     "code": {".py", ".js", ".ts", ".tsx", ".rs", ".go", ".java", ".c", ".cpp", ".h", ".cs", ".rb", ".php",
              ".sh", ".ps1", ".sql", ".html", ".css", ".json", ".yaml", ".yml", ".toml"},
     "archive": {".zip", ".7z", ".rar", ".tar", ".gz", ".iso"},
+    "program": {".exe", ".msi", ".msix", ".appx", ".dll", ".sys", ".bat", ".cmd", ".com", ".jar", ".apk", ".deb"},
 }

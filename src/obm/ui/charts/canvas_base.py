@@ -18,6 +18,7 @@ CATEGORY_COLORS = {
     "audio": "#f59e0b",
     "code": "#8b5cf6",
     "archive": "#06b6d4",
+    "program": "#ec4899",
     "unknown": "#6b7280",
     "filtered": "#7f1d1d",
 }
