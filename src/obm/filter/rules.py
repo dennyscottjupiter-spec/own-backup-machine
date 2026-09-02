@@ -20,6 +20,9 @@ BLOCKED_FILE_NAMES = {
 BLOCKED_EXTENSIONS = {
     ".log", ".tmp", ".temp", ".bak", ".old", ".pyc", ".pyo", ".o", ".obj",
     ".class", ".lock", ".crdownload", ".part", ".partial", ".dmp", ".etl",
+    # reinstallable binaries and VM/WSL disk images — huge, and restoring them is worse
+    # than reinstalling the program that owns them
+    ".exe", ".dll", ".vhdx",
 }
 
 BLOCKED_PATH_PATTERNS = (
@@ -38,4 +41,5 @@ CATEGORIES = {  # display grouping ONLY — never causes a drop
              ".sh", ".ps1", ".sql", ".html", ".css", ".json", ".yaml", ".yml", ".toml"},
     "archive": {".zip", ".7z", ".rar", ".tar", ".gz", ".iso"},
     "program": {".exe", ".msi", ".msix", ".appx", ".dll", ".sys", ".bat", ".cmd", ".com", ".jar", ".apk", ".deb"},
+    "llm model": {".gguf"},
 }

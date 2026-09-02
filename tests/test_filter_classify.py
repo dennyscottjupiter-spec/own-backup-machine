@@ -42,3 +42,11 @@ def test_category_unknown_for_unrecognised_extension():
 
 def test_category_known_extension():
     assert classify.category_of("C:\\f.pdf") == "document"
+
+
+def test_gguf_is_its_own_llm_model_category():
+    assert classify.category_of("C:\\models\\llama-3-8b.gguf") == "llm model"
+
+
+def test_iso_stays_in_the_archive_category():
+    assert classify.category_of("C:\\images\\win11.iso") == "archive"

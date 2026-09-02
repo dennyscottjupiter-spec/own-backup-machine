@@ -19,6 +19,7 @@ CATEGORY_COLORS = {
     "code": "#8b5cf6",
     "archive": "#06b6d4",
     "program": "#ec4899",
+    "llm model": "#14b8a6",
     "unknown": "#6b7280",
     "filtered": "#7f1d1d",
 }

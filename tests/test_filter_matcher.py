@@ -10,6 +10,10 @@ CASES = [
     ("C:\\Users\\me\\AppData\\Local\\Temp\\scratch.txt", False, "blocked-pattern:\\\\appdata\\\\local\\\\temp\\\\"),
     ("C:\\Users\\me\\mystery.xyz123", True, ""),  # unrecognised extension is KEPT
     ("C:\\Users\\me\\notes", True, ""),  # no extension at all is KEPT
+    ("C:\\Users\\me\\AppData\\Local\\Docker\\docker_data.vhdx", False, "blocked-ext:.vhdx"),
+    ("C:\\Users\\me\\Downloads\\setup.exe", False, "blocked-ext:.exe"),
+    ("C:\\Users\\me\\Downloads\\runtime.DLL", False, "blocked-ext:.dll"),  # extension match is case-insensitive
+    ("C:\\Users\\me\\models\\llama.gguf", True, ""),  # LLM weights are kept
 ]
 
 
