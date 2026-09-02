@@ -14,9 +14,11 @@ from ..pipeline import dryrun, execute
 from . import theme
 from .bigfiles_panel import BigFilesPanel
 from .charts.treemap_view import TreemapPanel
+from .history_panel import open_history_dialog
 from .issues_panel import IssuesPanel
 from .progress import ProgressState
 from .runbar import RunBar
+from .settings_dialog import open_settings_dialog
 from .summary_panel import SummaryPanel
 from .topbar import TopBar
 from .worker import Worker
@@ -34,7 +36,11 @@ class MainWindow(ctk.CTk):
         self.worker = Worker()
         self.result = None
 
-        self.topbar = TopBar(self, on_scan=self.start_scan)
+        self.topbar = TopBar(
+            self, on_scan=self.start_scan,
+            on_history=lambda: open_history_dialog(self),
+            on_settings=lambda: open_settings_dialog(self, self.cfg, self._on_settings_saved),
+        )
         self.topbar.pack(fill="x", padx=12, pady=(12, 6))
 
         body = ctk.CTkFrame(self, fg_color="transparent")
@@ -65,6 +71,10 @@ class MainWindow(ctk.CTk):
         self.runbar = RunBar(self, on_run=self.start_run)
         self.runbar.pack(fill="x", padx=12, pady=(6, 12))
 
+        self.start_scan()
+
+    def _on_settings_saved(self, cfg: config_mod.Config) -> None:
+        self.cfg = cfg
         self.start_scan()
 
     def start_scan(self) -> None:
