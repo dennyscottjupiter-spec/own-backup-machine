@@ -64,21 +64,21 @@ def run_cli() -> int:
     summary = aggregate.build_summary(result.candidates, result.issues)
 
     print(f"scanned {len(result.plans)} volume(s) in {humanize.duration(elapsed)}")
-    print(f"keep : {summary.kept_count} files, {humanize.size(summary.kept_bytes)}")
-    print(f"drop : {summary.dropped_count} files, {humanize.size(summary.dropped_bytes)}")
-    print(f"cloud-only (skipped): {summary.placeholder_count}")
+    print(f"keep : {humanize.count(summary.kept_count)} files, {humanize.size(summary.kept_bytes)}")
+    print(f"drop : {humanize.count(summary.dropped_count)} files, {humanize.size(summary.dropped_bytes)}")
+    print(f"cloud-only (skipped): {humanize.count(summary.placeholder_count)}")
 
     if summary.by_category:
         print("by category:")
         for cat, (count, total) in sorted(summary.by_category.items(), key=lambda kv: -kv[1][1]):
-            print(f"  {cat:<10} {count:>7} files  {humanize.size(total)}")
+            print(f"  {cat:<10} {humanize.count(count):>9} files  {humanize.size(total)}")
 
     if summary.big_files:
-        print(f"big files (>= {cfg.big_file_mb} MB): {len(summary.big_files)}")
+        print(f"big files (>= {cfg.big_file_mb} MB): {humanize.count(len(summary.big_files))}")
 
     if result.issues:
         print("issues:")
         for kind, count in issues_mod.summarize(result.issues).items():
-            print(f"  {issues_mod.KIND_LABELS.get(kind, kind)}: {count}")
+            print(f"  {issues_mod.KIND_LABELS.get(kind, kind)}: {humanize.count(count)}")
 
     return 0

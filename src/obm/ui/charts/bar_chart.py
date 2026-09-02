@@ -1,6 +1,7 @@
 # ---
 # purpose: horizontal bar chart Canvas widget -- category-by-size breakdown
 # exports: BarChart
+# depends: humanize.py
 # ---
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ import tkinter as tk
 
 import customtkinter as ctk
 
+from ... import humanize
 from .. import theme
 from .canvas_base import color_for_category
 
@@ -41,6 +43,6 @@ class BarChart(ctk.CTkFrame):
                 label_w, y, label_w + bar_w, y + 14, fill=color_for_category(name), outline=""
             )
             self.canvas.create_text(
-                label_w + bar_w + 6, y + 8, text=f"{value:,}", anchor="w",
+                label_w + bar_w + 6, y + 8, text=humanize.size(value), anchor="w",
                 fill=theme.MUTED, font=(theme.FONT_FAMILY, 9),
             )

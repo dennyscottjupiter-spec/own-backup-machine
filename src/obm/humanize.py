@@ -1,6 +1,6 @@
 # ---
-# purpose: human-readable formatting for sizes and durations
-# exports: size(), duration()
+# purpose: human-readable formatting for sizes, counts and durations
+# exports: size(), count(), duration()
 # ---
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ def size(num_bytes: int) -> str:
             return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
         value /= 1024.0
     return f"{value:.1f} {_UNITS[-1]}"
+
+
+def count(n: int) -> str:
+    return f"{n:,}"
 
 
 def duration(seconds: float) -> str:

@@ -148,8 +148,11 @@ def run_cli() -> int:
     record = run(cfg)
     elapsed = time.time() - started
 
-    print(f"archived {record.file_count} files ({humanize.size(record.total_bytes)}) in {humanize.duration(elapsed)}")
+    print(
+        f"archived {humanize.count(record.file_count)} files "
+        f"({humanize.size(record.total_bytes)}) in {humanize.duration(elapsed)}"
+    )
     print(f"-> {record.archive_path}")
     if record.issue_count:
-        print(f"issues / carried over: {record.issue_count}")
+        print(f"issues / carried over: {humanize.count(record.issue_count)}")
     return 0

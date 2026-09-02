@@ -32,7 +32,7 @@ class RunBar(ctk.CTkFrame):
     def update_result(self, result: DryRunResult) -> None:
         files = selected_files(result.candidates)
         total_bytes = sum(c.size for c in files)
-        self.run_button.configure(text=f"Run — {len(files)} files, {humanize.size(total_bytes)}")
+        self.run_button.configure(text=f"Run — {humanize.count(len(files))} files, {humanize.size(total_bytes)}")
 
     def set_status(self, text: str) -> None:
         self.status_label.configure(text=text)

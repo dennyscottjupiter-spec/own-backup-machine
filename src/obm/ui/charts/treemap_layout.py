@@ -1,7 +1,7 @@
 # ---
 # purpose: prune + squarify a TreeNode into a flat list[Tile] -- runs on the worker thread
 # exports: Tile, layout()
-# depends: squarify.py, treemap_model.TreeNode
+# depends: squarify.py, treemap_model.TreeNode, humanize.py
 # gotcha: pruning at 600px^2 / depth 6 caps output at ~1000-1500 tiles regardless of input size --
 #         this, not the drawing code, is what keeps a 100k-file dataset from freezing the canvas
 # ---
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ... import humanize
 from .squarify import Rect, squarify
 from .treemap_model import TreeNode
 
@@ -38,7 +39,7 @@ def layout(node: TreeNode, rect: Rect) -> list["Tile"]:
 
 def _leftover_tile(node: TreeNode, rect: Rect, depth: int, count: int, size: int) -> Tile:
     return Tile(
-        rect=rect, label=f"+{count} more", path=node.path, category="",
+        rect=rect, label=f"+{humanize.count(count)} more", path=node.path, category="",
         size=size, is_dir=False, depth=depth, is_more=True, more_count=count,
     )
 

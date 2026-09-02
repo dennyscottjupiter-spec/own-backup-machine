@@ -1,13 +1,15 @@
 # ---
 # purpose: the USN-vs-walk decision ladder -> one VolumePlan per volume, plus --compare-scanners
 # exports: build_plan(), compare_scanners_cli()
-# depends: roots.py, usn_journal.py, state/cursors.py, models.VolumePlan, winapi.volumes.VolumeInfo
+# depends: roots.py, usn_journal.py, state/cursors.py, models.VolumePlan, winapi.volumes.VolumeInfo,
+#          humanize.py
 # gotcha: do NOT pre-check elevation -- attempt the open and treat failure as "walk this volume";
 #         IsUserAnAdmin() is only a status badge elsewhere, never a branch here
 # ---
 from __future__ import annotations
 
 from .. import config as config_mod
+from .. import humanize
 from ..models import CandidateFile, VolumePlan
 from ..state import cursors as cursors_mod
 from ..state import store as state_store
@@ -119,10 +121,13 @@ def compare_scanners_cli() -> int:
         only_walk = walk_paths - usn_paths
         only_usn = usn_paths - walk_paths
 
-        print(f"{v.letter}: walk={len(walk_paths)} usn={len(usn_paths)}")
+        print(f"{v.letter}: walk={humanize.count(len(walk_paths))} usn={humanize.count(len(usn_paths))}")
         if only_walk or only_usn:
             exit_code = 1
-            print(f"  MISMATCH: {len(only_walk)} only in walk, {len(only_usn)} only in usn")
+            print(
+                f"  MISMATCH: {humanize.count(len(only_walk))} only in walk, "
+                f"{humanize.count(len(only_usn))} only in usn"
+            )
             for p in list(only_walk)[:10]:
                 print(f"    walk-only: {p}")
             for p in list(only_usn)[:10]:
