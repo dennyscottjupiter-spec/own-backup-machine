@@ -1,7 +1,7 @@
 # ---
-# purpose: the Run button, its file/size caption, and a determinate archive-progress bar
+# purpose: the Run button, its file/size caption, the destination picker, and a progress bar
 # exports: RunBar
-# depends: pipeline/selection.py
+# depends: pipeline/selection.py, ui/dest_picker.py
 # ---
 from __future__ import annotations
 
@@ -13,10 +13,17 @@ from .. import humanize
 from ..models import DryRunResult
 from ..pipeline.selection import selected_files
 from . import theme
+from .dest_picker import DestPicker
 
 
 class RunBar(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTk, on_run: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        master: ctk.CTk,
+        on_run: Callable[[], None],
+        destination: str = "",
+        on_destination_change: Callable[[str], None] | None = None,
+    ) -> None:
         super().__init__(master, fg_color=theme.PANEL_BG, corner_radius=8)
 
         self.status_label = ctk.CTkLabel(self, text="Scan to begin", font=theme.body_font(), text_color=theme.MUTED)
@@ -28,6 +35,13 @@ class RunBar(ctk.CTkFrame):
 
         self.run_button = ctk.CTkButton(self, text="Run", command=on_run, fg_color=theme.SUCCESS, state="disabled")
         self.run_button.pack(side="right", padx=16, pady=10)
+
+        # packed after the Run button so it lands to its left
+        self.dest_picker = DestPicker(self, destination, on_destination_change)
+        self.dest_picker.pack(side="right", padx=8, pady=10)
+
+    def destination(self) -> str:
+        return self.dest_picker.get()
 
     def update_result(self, result: DryRunResult) -> None:
         files = selected_files(result.candidates)

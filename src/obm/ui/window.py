@@ -2,7 +2,7 @@
 # purpose: assemble the panels, own the worker-thread poll loop, wire scan/run to the pipeline
 # exports: MainWindow, run_gui()
 # depends: pipeline/{dryrun,execute}, ui/{worker,progress,topbar,summary_panel,bigfiles_panel,
-#          issues_panel,runbar,dialog}
+#          issues_panel,runbar,run_dialog,dialog}
 # gotcha: only this file (plus worker.py) ever calls into pipeline/ -- everything else in ui/ is
 #         presentation-only, which is what lets the UI ship with zero widget tests
 # ---
@@ -19,6 +19,7 @@ from .charts.treemap_view import TreemapPanel
 from .history_panel import open_history_dialog
 from .issues_panel import IssuesPanel
 from .progress import ProgressState
+from .run_dialog import RunProgressDialog
 from .runbar import RunBar
 from .settings_dialog import open_settings_dialog
 from .summary_panel import SummaryPanel
@@ -50,8 +51,15 @@ class MainWindow(ctk.CTk):
 
         # packed before the body so the packer reserves its strip first: the body's natural
         # height exceeds any laptop screen, and a bar packed after it is silently left unmapped
-        self.runbar = RunBar(self, on_run=self.start_run)
+        self.runbar = RunBar(
+            self, on_run=self.start_run,
+            destination=self.cfg.destination_path,
+            on_destination_change=self._on_destination_change,
+        )
         self.runbar.pack(side="bottom", fill="x", padx=12, pady=(6, 12))
+        # an unset destination resolves to the preferred drive -- persist that as the real choice
+        if self.runbar.destination() != self.cfg.destination_path:
+            self._on_destination_change(self.runbar.destination())
 
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.pack(fill="both", expand=True, padx=12, pady=6)
@@ -101,6 +109,10 @@ class MainWindow(ctk.CTk):
     def _expand(self, title: str, factory) -> None:
         dialog.open_panel_window(self, title, factory, self.result)
 
+    def _on_destination_change(self, path: str) -> None:
+        self.cfg.destination_path = path
+        config_mod.save(self.cfg)
+
     def _on_settings_saved(self, cfg: config_mod.Config) -> None:
         self.cfg = cfg
         self.start_scan()
@@ -133,12 +145,18 @@ class MainWindow(ctk.CTk):
         self.runbar.set_enabled(False)
         self.runbar.set_status("Archiving...")
         progress = ProgressState()
-        self.worker.submit(lambda: execute.run(self.cfg, result=self.result, on_progress=progress.update))
+        self.run_dialog = RunProgressDialog(self)
+        self.worker.submit(
+            lambda: execute.run(
+                self.cfg, result=self.result, on_progress=progress.update, on_stage=progress.stage
+            )
+        )
         self.after(100, lambda: self._poll_run(progress))
 
     def _poll_run(self, progress: ProgressState) -> None:
-        done, total = progress.snapshot()
+        done, total, stages = progress.snapshot()
         self.runbar.set_progress(done, total)
+        self.run_dialog.update_progress(done, total, stages)
 
         item = self.worker.poll()
         if item is None:
@@ -147,11 +165,11 @@ class MainWindow(ctk.CTk):
 
         kind, payload = item
         if kind == "error":
-            self.runbar.set_status(f"Run failed: {payload}")
+            message = f"Run failed: {payload}"
         else:
-            self.runbar.set_status(
-                f"Archived {humanize.count(payload.file_count)} files -> {payload.archive_path}"
-            )
+            message = f"Archived {humanize.count(payload.file_count)} files -> {payload.archive_path}"
+        self.runbar.set_status(message)
+        self.run_dialog.finish(message, ok=kind != "error")
         self.runbar.set_progress(0, 0)
         self.runbar.set_enabled(True)
 
