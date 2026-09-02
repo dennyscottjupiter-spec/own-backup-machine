@@ -10,11 +10,12 @@ from __future__ import annotations
 import ctypes
 import time
 from datetime import datetime, timezone
+from typing import Callable
 
 from .. import config as config_mod
 from .. import humanize
 from ..archive import detect, manifest, naming, writer
-from ..models import CandidateFile, RunRecord
+from ..models import CandidateFile, DryRunResult, RunRecord
 from ..state import carryover
 from ..state import cursors as cursors_mod
 from ..state import history
@@ -23,7 +24,7 @@ from ..state.fingerprints import Fingerprints
 from ..winapi import constants as wc
 from ..winapi import kernel32 as k32
 from ..winapi.longpath import to_extended
-from . import dryrun
+from . import dryrun, selection
 
 
 def _probe_open(path: str) -> str | None:
@@ -62,12 +63,20 @@ def _preflight(candidates: list[CandidateFile]) -> tuple[list[CandidateFile], li
     return ready, carried
 
 
-def run(cfg: config_mod.Config) -> RunRecord:
+def run(
+    cfg: config_mod.Config,
+    result: DryRunResult | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> RunRecord:
+    """`result` lets a caller (the UI) pass its already-scanned, checkbox-edited DryRunResult
+    instead of triggering a second, independent scan that would silently discard any
+    unticked big files -- the CLI path leaves it None and scans fresh."""
     run_started = datetime.now(timezone.utc)
     run_id = naming.run_id_for(run_started)
 
-    result = dryrun.run(cfg)
-    kept = [c for c in result.candidates if c.verdict == "keep" and c.selected]
+    if result is None:
+        result = dryrun.run(cfg)
+    kept = selection.selected_files(result.candidates)
     to_archive, newly_carried = _preflight(kept)
 
     tool = detect.detect()
@@ -75,7 +84,7 @@ def run(cfg: config_mod.Config) -> RunRecord:
     archive_filename = naming.archive_name(tool.name, run_started)
 
     final_path = writer.write_archive(
-        tool, cfg.archive_level, [c.path for c in to_archive], cfg.destination_path, archive_filename
+        tool, cfg.archive_level, [c.path for c in to_archive], cfg.destination_path, archive_filename, on_progress
     )
 
     finished = datetime.now(timezone.utc)
