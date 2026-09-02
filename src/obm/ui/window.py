@@ -1,7 +1,8 @@
 # ---
 # purpose: assemble the panels, own the worker-thread poll loop, wire scan/run to the pipeline
 # exports: MainWindow, run_gui()
-# depends: pipeline/{dryrun,execute}, ui/{worker,progress,topbar,summary_panel,bigfiles_panel,issues_panel,runbar}
+# depends: pipeline/{dryrun,execute}, ui/{worker,progress,topbar,summary_panel,bigfiles_panel,
+#          issues_panel,runbar,dialog}
 # gotcha: only this file (plus worker.py) ever calls into pipeline/ -- everything else in ui/ is
 #         presentation-only, which is what lets the UI ship with zero widget tests
 # ---
@@ -10,8 +11,9 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from .. import config as config_mod
+from .. import humanize
 from ..pipeline import dryrun, execute
-from . import theme
+from . import dialog, theme
 from .bigfiles_panel import BigFilesPanel
 from .charts.treemap_view import TreemapPanel
 from .history_panel import open_history_dialog
@@ -22,6 +24,9 @@ from .settings_dialog import open_settings_dialog
 from .summary_panel import SummaryPanel
 from .topbar import TopBar
 from .worker import Worker
+
+# the dashboard tiles stay capped at 100 rows; the popped-out copy can afford more widgets
+DETAIL_MAX_SHOWN = 500
 
 
 class MainWindow(ctk.CTk):
@@ -56,22 +61,29 @@ class MainWindow(ctk.CTk):
         left.grid_rowconfigure(2, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
-        self.summary_panel = SummaryPanel(left)
+        self.summary_panel = SummaryPanel(left, on_expand=lambda: self._expand("Summary", SummaryPanel))
         self.summary_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
 
-        self.bigfiles_panel = BigFilesPanel(left)
+        self.bigfiles_panel = BigFilesPanel(
+            left, on_expand=lambda: self._expand("Big files", lambda m: BigFilesPanel(m, max_shown=DETAIL_MAX_SHOWN))
+        )
         self.bigfiles_panel.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
 
-        self.issues_panel = IssuesPanel(left)
+        self.issues_panel = IssuesPanel(
+            left, on_expand=lambda: self._expand("Issues", lambda m: IssuesPanel(m, max_shown=DETAIL_MAX_SHOWN))
+        )
         self.issues_panel.grid(row=2, column=0, sticky="nsew")
 
-        self.treemap_panel = TreemapPanel(body)
+        self.treemap_panel = TreemapPanel(body, on_expand=lambda: self._expand("Treemap", TreemapPanel))
         self.treemap_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
         self.runbar = RunBar(self, on_run=self.start_run)
         self.runbar.pack(fill="x", padx=12, pady=(6, 12))
 
         self.start_scan()
+
+    def _expand(self, title: str, factory) -> None:
+        dialog.open_panel_window(self, title, factory, self.result)
 
     def _on_settings_saved(self, cfg: config_mod.Config) -> None:
         self.cfg = cfg
@@ -121,7 +133,9 @@ class MainWindow(ctk.CTk):
         if kind == "error":
             self.runbar.set_status(f"Run failed: {payload}")
         else:
-            self.runbar.set_status(f"Archived {payload.file_count} files -> {payload.archive_path}")
+            self.runbar.set_status(
+                f"Archived {humanize.count(payload.file_count)} files -> {payload.archive_path}"
+            )
         self.runbar.set_progress(0, 0)
         self.runbar.set_enabled(True)
 

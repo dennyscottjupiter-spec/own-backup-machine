@@ -2,14 +2,18 @@
 # purpose: ONE Motion binding + reverse-order hit-test -- per-item Enter/Leave bindings are
 #          exactly how tkinter stalls on thousands of items
 # exports: TreemapInteraction
+# depends: treemap_layout.Tile, humanize.py
 # gotcha: acts only when the hit index CHANGES, and reuses one highlight rect + one tooltip
-#          group -- never creates/deletes canvas items on every mouse-move tick
+#          group -- never creates/deletes canvas items on every mouse-move tick.
+#          A single click reports the whole Tile, never just its path -- the view needs
+#          is_dir/is_more to tell "drill in" from "show this file" apart.
 # ---
 from __future__ import annotations
 
 import tkinter as tk
 from typing import Callable
 
+from ... import humanize
 from .treemap_layout import Tile
 
 
@@ -17,7 +21,7 @@ class TreemapInteraction:
     def __init__(
         self,
         canvas: tk.Canvas,
-        on_drill_down: Callable[[str], None] | None = None,
+        on_tile_click: Callable[[Tile], None] | None = None,
         on_open_file: Callable[[str], None] | None = None,
     ) -> None:
         self.canvas = canvas
@@ -26,7 +30,7 @@ class TreemapInteraction:
         self._highlight_id: int | None = None
         self._tooltip_bg_id: int | None = None
         self._tooltip_text_id: int | None = None
-        self._on_drill_down = on_drill_down
+        self._on_tile_click = on_tile_click
         self._on_open_file = on_open_file
 
         canvas.bind("<Motion>", self._on_motion)
@@ -67,7 +71,7 @@ class TreemapInteraction:
         self._highlight_id = self.canvas.create_rectangle(
             r.x, r.y, r.x + r.w, r.y + r.h, outline="#ffffff", width=2, tags=("hover",)
         )
-        text = f"{tile.label} ({tile.more_count} items)" if tile.is_more else tile.label
+        text = f"{tile.label} ({humanize.count(tile.more_count)} items)" if tile.is_more else tile.label
         self._tooltip_bg_id = self.canvas.create_rectangle(
             event.x + 12, event.y + 14, event.x + 14 + 7 * len(text), event.y + 32,
             fill="#000000", outline="", tags=("hover",),
@@ -84,9 +88,8 @@ class TreemapInteraction:
         idx = self._hit_test(event.x, event.y)
         if idx is None:
             return
-        tile = self._tiles[idx]
-        if tile.is_dir and self._on_drill_down:
-            self._on_drill_down(tile.path)
+        if self._on_tile_click:
+            self._on_tile_click(self._tiles[idx])
 
     def _on_double_click(self, event: tk.Event) -> None:
         idx = self._hit_test(event.x, event.y)

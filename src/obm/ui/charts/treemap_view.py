@@ -2,7 +2,8 @@
 # purpose: the treemap widget -- breadcrumb, canvas, debounced resize, chunked draw with a
 #          generation counter so a resize mid-render never paints a stale layout
 # exports: TreemapPanel
-# depends: treemap_model.py, treemap_layout.py, treemap_interact.py, canvas_base.py, ui/worker.py
+# depends: treemap_model.py, treemap_layout.py, treemap_interact.py, canvas_base.py, ui/worker.py,
+#          ui/panel_header.py, ui/dialog.py
 # gotcha: model+layout run on the worker thread (Worker), NOT the Tk thread -- only drawing
 #         touches the canvas directly, chunked at CHUNK_SIZE items per after_idle
 # ---
@@ -15,7 +16,7 @@ import tkinter.font as tkfont
 import customtkinter as ctk
 
 from ... import humanize
-from .. import theme
+from .. import dialog, panel_header, theme
 from ..worker import Worker
 from .canvas_base import draw_tile
 from .squarify import Rect
@@ -28,16 +29,17 @@ RESIZE_DEBOUNCE_MS = 120
 
 
 class TreemapPanel(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTkBaseClass) -> None:
+    def __init__(self, master: ctk.CTkBaseClass, on_expand=None) -> None:
         super().__init__(master, fg_color=theme.PANEL_BG, corner_radius=8)
 
-        header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", padx=8, pady=(8, 0))
-        ctk.CTkLabel(header, text="Treemap", font=theme.heading_font(), text_color=theme.TEXT).pack(side="left")
+        header = panel_header.build(self, "Treemap", on_expand)
         self.breadcrumb_label = ctk.CTkLabel(header, text="", font=theme.body_font(11), text_color=theme.MUTED)
         self.breadcrumb_label.pack(side="left", padx=12)
-        self.up_button = ctk.CTkButton(header, text="Up", width=48, command=self._go_up, state="disabled")
-        self.up_button.pack(side="right")
+        self.up_button = ctk.CTkButton(
+            header, text="Up", width=48, height=24, fg_color=theme.BG,
+            font=theme.body_font(11), command=self._go_up, state="disabled",
+        )
+        self.up_button.pack(side="right", padx=(4, 8))
         self.filtered_switch = ctk.CTkSwitch(
             header, text="Show filtered", command=self._toggle_filtered, font=theme.body_font(11)
         )
@@ -49,7 +51,9 @@ class TreemapPanel(ctk.CTkFrame):
 
         self._label_font = tkfont.Font(family=theme.FONT_FAMILY, size=10)
         self._size_font = tkfont.Font(family=theme.FONT_FAMILY, size=8)
-        self._interact = TreemapInteraction(self.canvas, on_drill_down=self._drill_down, on_open_file=self._open_file)
+        self._interact = TreemapInteraction(
+            self.canvas, on_tile_click=self._on_tile_click, on_open_file=self._open_file
+        )
         self._layout_worker = Worker()
 
         self._result = None
@@ -74,13 +78,39 @@ class TreemapPanel(ctk.CTkFrame):
         self._show_filtered = bool(self.filtered_switch.get())
         self._rebuild_tree()
 
-    def _drill_down(self, path: str) -> None:
-        node = self._find(self._breadcrumb[-1], path)
-        if node is None or not node.is_dir or not node.children:
+    def _on_tile_click(self, tile: Tile) -> None:
+        """A click lands on the deepest tile under the cursor, which is usually a FILE even when
+        the user aimed at the folder around it -- so a file resolves to its own directory, and
+        only a file already inside the current view is treated as "show me this one"."""
+        if tile.is_dir or tile.is_more:
+            self._drill_to(tile.path)
             return
+        parent_path = tile.path.rsplit("\\", 1)[0] if "\\" in tile.path else ""
+        if not self._drill_to(parent_path):
+            self._show_file(tile)
+
+    def _drill_to(self, path: str) -> bool:
+        current = self._breadcrumb[-1]
+        if not path or path.lower() == current.path.lower():
+            return False
+        node = self._find(current, path)
+        if node is None or not node.is_dir or not node.children:
+            return False
         self._breadcrumb.append(node)
         self._update_breadcrumb_label()
         self._request_layout()
+        return True
+
+    def _show_file(self, tile: Tile) -> None:
+        volume = os.path.splitdrive(tile.path)[0] or "(unknown)"
+        dialog.open_text_window(
+            self.winfo_toplevel(),  # centering over the panel frame would land it half off-window
+            "File",
+            f"{tile.path}\n\n"
+            f"Size:      {humanize.size(tile.size)}\n"
+            f"Category:  {tile.category or 'unknown'}\n"
+            f"Volume:    {volume}",
+        )
 
     def _go_up(self) -> None:
         if len(self._breadcrumb) <= 1:
