@@ -1,6 +1,8 @@
 # ---
-# purpose: human-readable labels, counts, size resolution and a paste-ready report for ScanIssue
-# exports: KIND_LABELS, label(), summarize(), by_size(), resolve_sizes(), size_prefix(), report()
+# purpose: human-readable labels, counts, size resolution, root-folder grouping and a paste-ready
+#          report for ScanIssue
+# exports: KIND_LABELS, IssueGroup, label(), summarize(), by_size(), resolve_sizes(),
+#          size_prefix(), report(), group_by_root(), relative_to()
 # depends: models.ScanIssue, humanize.py, winapi/longpath.py
 # gotcha: resolve_sizes() stats the filesystem, so it runs in the scan worker (dryrun), never on
 #         the Tk thread; it is capped because a bad volume can produce issues by the hundred-thousand
@@ -9,6 +11,7 @@ from __future__ import annotations
 
 import os
 from collections import Counter
+from dataclasses import dataclass
 
 from .. import humanize
 from ..models import ScanIssue
@@ -27,6 +30,17 @@ KIND_LABELS = {
 MAX_SIZE_LOOKUPS = 5000
 UNKNOWN_SIZE = "?"
 
+# how many leading path components decide "these issues live in the same place". Four covers
+# C:\Users\<name>\AppData -- one collapsed row instead of a screenful of its subfolders.
+GROUP_DEPTH = 4
+
+
+@dataclass(slots=True)
+class IssueGroup:
+    root: str
+    issues: list[ScanIssue]
+    total_size: int
+
 
 def label(issue: ScanIssue) -> str:
     return KIND_LABELS.get(issue.kind, issue.kind)
@@ -39,6 +53,48 @@ def summarize(issues: list[ScanIssue]) -> dict[str, int]:
 def by_size(issues: list[ScanIssue]) -> list[ScanIssue]:
     """Biggest offender first — what the UI list and the copied report are both ordered by."""
     return sorted(issues, key=lambda i: -i.size)
+
+
+def _components(path: str) -> list[str]:
+    return path.replace("/", "\\").split("\\")
+
+
+def _folder_of(path: str) -> list[str]:
+    return _components(os.path.dirname(path))
+
+
+def _common_folder(issues: list[ScanIssue]) -> str:
+    """The deepest folder every issue in the bucket actually shares -- so a bucket that is really
+    all one Temp folder is labelled with that folder, not with its four-component key."""
+    common = _folder_of(issues[0].path)
+    for issue in issues[1:]:
+        parts = _folder_of(issue.path)
+        n = 0
+        while n < len(common) and n < len(parts) and common[n].lower() == parts[n].lower():
+            n += 1
+        common = common[:n]
+    return "\\".join(common)
+
+
+def group_by_root(issues: list[ScanIssue], depth: int = GROUP_DEPTH) -> list[IssueGroup]:
+    """Collapse issues that share a root folder into one group, biggest group first."""
+    buckets: dict[str, list[ScanIssue]] = {}
+    for issue in issues:
+        key = "\\".join(_folder_of(issue.path)[:depth]).lower()
+        buckets.setdefault(key, []).append(issue)
+
+    groups = [
+        IssueGroup(root=_common_folder(bucket), issues=by_size(bucket), total_size=sum(i.size for i in bucket))
+        for bucket in buckets.values()
+    ]
+    groups.sort(key=lambda g: (-g.total_size, -len(g.issues), g.root))
+    return groups
+
+
+def relative_to(root: str, path: str) -> str:
+    """The part of `path` below `root` -- what a collapsed group's child rows show."""
+    prefix = root.rstrip("\\") + "\\"
+    return path[len(prefix):] if path.lower().startswith(prefix.lower()) else path
 
 
 def resolve_sizes(issues: list[ScanIssue], limit: int = MAX_SIZE_LOOKUPS) -> None:
