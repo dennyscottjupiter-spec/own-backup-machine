@@ -26,6 +26,20 @@ def test_cdrom_and_rootless_drives_are_not_offered(monkeypatch):
     assert destinations.drive_options() == ["X:\\", "D:\\", "E:\\", "C:\\", "Z:\\"]
 
 
+def test_desktop_and_downloads_are_offered_after_the_drives(monkeypatch):
+    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:"])
+    monkeypatch.setattr(destinations, "_drive_type", lambda root: 3)
+    monkeypatch.setattr(destinations, "folder_options", lambda: ["C:\\Users\\me\\Desktop"])
+
+    assert destinations.destination_options() == ["X:\\", "D:\\", "E:\\", "C:\\", "C:\\Users\\me\\Desktop"]
+
+
+def test_an_unresolvable_folder_is_simply_not_offered(monkeypatch):
+    monkeypatch.setattr(destinations, "known_folder", lambda folder_id: "")
+
+    assert destinations.folder_options() == []
+
+
 def test_configured_path_wins_over_the_preferred_drive():
     assert destinations.resolve_default("D:\\backups", ["X:\\", "C:\\"]) == "D:\\backups"
 

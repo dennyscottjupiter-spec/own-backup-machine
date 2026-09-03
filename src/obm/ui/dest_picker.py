@@ -1,5 +1,6 @@
 # ---
-# purpose: the "save the archive here" selector -- every writable drive plus a folder browser
+# purpose: the "save the archive here" selector -- every writable drive, Desktop and Downloads,
+#          plus a folder browser
 # exports: DestPicker
 # depends: destinations.py, ui/theme.py
 # gotcha: an empty config resolves to destinations.PREFERRED_DRIVE, so the caller must read
@@ -26,7 +27,7 @@ class DestPicker(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent")
         self._on_change = on_change
 
-        options = destinations.drive_options()
+        options = destinations.destination_options()
         self._current = destinations.resolve_default(current, options)
         if self._current and self._current not in options:
             options.insert(0, self._current)
