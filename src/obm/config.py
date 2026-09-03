@@ -23,6 +23,9 @@ class Config:
     archive_level: int = 5
     hash_max_mb: int = 512
     big_file_mb: int = 100
+    layout_geometry: str = ""
+    layout_main_sashes: list[int] = field(default_factory=list)
+    layout_left_sashes: list[int] = field(default_factory=list)
 
 
 def _seed_if_missing() -> None:
@@ -57,6 +60,9 @@ def load() -> Config:
         archive_level=int(archive.get("level", 5)),
         hash_max_mb=int(archive.get("hash_max_mb", 512)),
         big_file_mb=int(ui.get("big_file_mb", 100)),
+        layout_geometry=str(ui.get("layout_geometry", "")),
+        layout_main_sashes=[int(v) for v in ui.get("layout_main_sashes", [])],
+        layout_left_sashes=[int(v) for v in ui.get("layout_left_sashes", [])],
     )
 
 
@@ -66,6 +72,10 @@ def _literal(s: str) -> str:
 
 def _literal_list(items: list[str]) -> str:
     return "[" + ", ".join(_literal(i) for i in items) + "]"
+
+
+def _int_list(items: list[int]) -> str:
+    return "[" + ", ".join(str(int(i)) for i in items) + "]"
 
 
 def save(cfg: Config) -> None:
@@ -82,5 +92,8 @@ def save(cfg: Config) -> None:
         f"hash_max_mb = {cfg.hash_max_mb}\n\n"
         "[ui]\n"
         f"big_file_mb = {cfg.big_file_mb}\n"
+        f"layout_geometry = {_literal(cfg.layout_geometry)}\n"
+        f"layout_main_sashes = {_int_list(cfg.layout_main_sashes)}\n"
+        f"layout_left_sashes = {_int_list(cfg.layout_left_sashes)}\n"
     )
     paths.config_path().write_text(text, encoding="utf-8")

@@ -15,8 +15,12 @@ Delta-only backup engines already exist (restic, Kopia, rclone, Syncthing...). W
 - **A dry-run visualization dashboard** — a squarified treemap and category charts of what a run
   would actually archive, before it touches anything, plus a "back up only these kinds"
   per-category selector in the Summary panel.
-- **A destination picker in the run bar** — every writable drive (defaulting to `X:`) plus a
-  folder browser, saved back to `config.toml` the moment you pick one.
+- **A destination picker in the run bar** — every writable drive (`X:`, `D:` and `E:` are always
+  offered, even when unmapped) plus a folder browser, saved back to `config.toml` the moment you
+  pick one.
+- **A dashboard you can resize** — drag the splitter between any two panels; the window size and
+  every splitter position are restored on the next launch. `Esc` closes any popup window, and the
+  Issues panel lists the biggest offender first, each row prefixed with `[size]`.
 - **A live run window** — an hourglass and a running log of exactly what the archive step is
   doing (lock check, compression, verification, copy, state commit), and a Copy button on the
   Issues panel that puts every issue on the clipboard for pasting into a bug report.

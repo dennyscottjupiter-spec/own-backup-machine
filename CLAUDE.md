@@ -72,15 +72,20 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
 - **`ui/`** — CustomTkinter. Scans and treemap layout run on a `Worker` thread and come back
   through a queue; Tk widgets are touched only from the Tk thread. `charts/squarify.py` and
   `charts/treemap_layout.py` are pure geometry with zero tkinter imports.
-  `panel_header.py` builds every panel's title row, including the ⤢ Expand button that reopens
+  `panel_header.py` builds every panel's title row, including the ⛶ glyph button that reopens
   that panel class full-size via `dialog.open_panel_window()`. `dialog.py` owns all Toplevel
-  sizing, centring and raise-to-front — CustomTkinter's deferred internal update undoes a
-  `lift()` issued at construction, so the raise **must** be re-issued from an `after()` callback.
+  sizing, centring, raise-to-front and the `<Escape>` binding that closes a popup —
+  CustomTkinter's deferred internal update undoes a `lift()` issued at construction, so the raise
+  **must** be re-issued from an `after()` callback.
+  `layout.py` builds the `tk.PanedWindow` splitters that make the dashboard panels resizable and
+  reads/writes their sash positions; `window.py` restores them (plus the window geometry) from
+  `config.toml` on launch and saves them back in `_on_close`.
   `type_filter.py` is the Summary panel's "back up only these kinds" selector: it writes
   `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
   panel and the run bar from its `on_change` callback.
-  `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` plus a
-  folder browser, and `window.py` persists each pick to `config.toml` immediately.
+  `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` — plus
+  `X:`, `D:` and `E:` whether or not they are present — and a folder browser, and `window.py`
+  persists each pick to `config.toml` immediately.
   `run_dialog.py` + `hourglass.py` are the live run window: the pipeline's `on_stage` messages
   land in `ProgressState` and the poll loop replays them as a stage log.
 

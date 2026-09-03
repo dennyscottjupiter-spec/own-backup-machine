@@ -20,6 +20,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.title("Settings")
         self.configure(fg_color=theme.BG)
         self._on_saved = on_saved
+        self._cfg = cfg  # the layout fields are window state, not settings -- carried over on save
 
         self._dest_var = ctk.StringVar(value=cfg.destination_path)
         self._usn_var = ctk.BooleanVar(value=cfg.use_usn)
@@ -86,6 +87,9 @@ class SettingsDialog(ctk.CTkToplevel):
             archive_level=int(self._level_var.get() or 5),
             hash_max_mb=int(self._hash_var.get() or 512),
             big_file_mb=int(self._big_var.get() or 100),
+            layout_geometry=self._cfg.layout_geometry,
+            layout_main_sashes=self._cfg.layout_main_sashes,
+            layout_left_sashes=self._cfg.layout_left_sashes,
         )
         config_mod.save(cfg)
         self._on_saved(cfg)

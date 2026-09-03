@@ -30,6 +30,7 @@ class ScanIssue:
     path: str
     kind: str  # denied|locked|vanished|toolong|reparse|journal_reset|unreadable
     detail: str = ""
+    size: int = 0  # 0 when the size could not be read -- these sort last
 
 
 @dataclass(slots=True)
