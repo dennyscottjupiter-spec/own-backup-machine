@@ -2,7 +2,10 @@
 # purpose: read-only summary view over a scored candidate list — feeds CLI, panels, charts
 # exports: Summary, build_summary()
 # depends: models.py, filter/classify.py, scan/issues.py
-# gotcha: placeholders are counted separately and never added to kept bytes — never archived
+# gotcha: placeholders are counted separately and never added to kept bytes — never archived.
+#         The selected_* / by_category_selected fields are the subset the user still has ticked;
+#         the kept_* / by_category ones stay the full scan result so the UI can show what is
+#         being given up. Deselecting never moves a byte from kept to dropped.
 # ---
 from __future__ import annotations
 
@@ -17,10 +20,13 @@ from ..scan.issues import summarize as summarize_issues
 class Summary:
     kept_count: int = 0
     kept_bytes: int = 0
+    selected_count: int = 0
+    selected_bytes: int = 0
     dropped_count: int = 0
     dropped_bytes: int = 0
     placeholder_count: int = 0
     by_category: dict[str, tuple[int, int]] = field(default_factory=dict)
+    by_category_selected: dict[str, tuple[int, int]] = field(default_factory=dict)
     by_volume: dict[str, tuple[int, int]] = field(default_factory=dict)
     big_files: list[CandidateFile] = field(default_factory=list)
     issue_counts: dict[str, int] = field(default_factory=dict)
@@ -41,10 +47,15 @@ def build_summary(candidates: list[CandidateFile], issues: list[ScanIssue]) -> S
         if "placeholder" in c.tags:
             s.placeholder_count += 1
             continue
+        category = category_of(c.path)
         s.kept_count += 1
         s.kept_bytes += c.size
-        _bump(s.by_category, category_of(c.path), c.size)
+        _bump(s.by_category, category, c.size)
         _bump(s.by_volume, c.volume, c.size)
+        if c.selected:
+            s.selected_count += 1
+            s.selected_bytes += c.size
+            _bump(s.by_category_selected, category, c.size)
         if "big" in c.tags:
             s.big_files.append(c)
 

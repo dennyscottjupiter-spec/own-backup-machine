@@ -3,6 +3,7 @@
 #          CandidateFile.selected, plus an all-categories-at-once toggle
 # exports: TypeFilter
 # depends: filter/classify.py, humanize.py, ui/{theme,category_peek}
+# note: refresh_selection() re-reads the records into the boxes; update_result() rebuilds the rows
 # gotcha: acts on every kept candidate of a category, not on the rows any other panel shows, so
 #         panels bound to the same records must be refreshed from the on_change callback.
 #         The peek button is the word "list", not a glyph: at two columns there is room for it,
@@ -32,6 +33,12 @@ class TypeFilter(ctk.CTkFrame):
         self._vars: dict[str, ctk.BooleanVar] = {}
         for column in range(COLUMNS):
             self.grid_columnconfigure(column, weight=1)
+
+    def refresh_selection(self) -> None:
+        """Someone else wrote CandidateFile.selected (the big-file rows do) -- re-read it into the
+        checkboxes without rebuilding them, which would destroy a widget mid-click."""
+        for category, var in self._vars.items():
+            var.set(any(c.selected for c in self._by_category.get(category, ())))
 
     def all_selected(self) -> bool:
         return bool(self._by_category) and all(

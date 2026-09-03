@@ -1,7 +1,10 @@
 # ---
-# purpose: horizontal bar chart Canvas widget -- category-by-size breakdown
+# purpose: horizontal bar chart Canvas widget -- category-by-size breakdown, with the still-selected
+#          share drawn bright inside the dimmed scan total
 # exports: BarChart
-# depends: humanize.py
+# depends: humanize.py, palette.py
+# gotcha: a deselected category keeps its row and its full-length dim bar -- the user is choosing
+#         what to give up and has to be able to see it. Rows never disappear on a checkbox press.
 # ---
 from __future__ import annotations
 
@@ -9,9 +12,17 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from ... import humanize
+from ... import humanize, palette
 from .. import theme
 from .canvas_base import color_for_category
+
+ROW_H = 22
+LABEL_W = 90
+BAR_H = 14
+# the caption sits past the end of the longest bar, so the gutter has to fit it: "1.5 GB" needs
+# far less room than "820.4 MB of 1.5 GB", and the long form only appears once something is deselected
+GUTTER_W = 60
+GUTTER_W_COMPARED = 150
 
 
 class BarChart(ctk.CTkFrame):
@@ -22,9 +33,15 @@ class BarChart(ctk.CTkFrame):
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Configure>", lambda e: self._redraw())
         self._items: list[tuple[str, int]] = []
+        self._selected: dict[str, int] = {}
+        self._full = True
 
-    def update_data(self, items: list[tuple[str, int]]) -> None:
+    def update_data(self, items: list[tuple[str, int]], selected: dict[str, int] | None = None) -> None:
+        """`items` is the scan total per category; `selected` the still-ticked bytes of each one.
+        Omitting `selected` means "everything counts", which is what a fresh scan shows."""
         self._items = sorted(items, key=lambda kv: -kv[1])
+        self._selected = dict(selected) if selected is not None else {}
+        self._full = selected is None
         self._redraw()
 
     def _redraw(self) -> None:
@@ -32,18 +49,33 @@ class BarChart(ctk.CTkFrame):
         if not self._items:
             return
         width = self.canvas.winfo_width() or 400
-        row_h = 22
         max_val = max(v for _, v in self._items) or 1
-        label_w = 90
+        compared = not self._full and any(self._selected.get(n, 0) != v for n, v in self._items)
+        track_w = max(20, width - LABEL_W - (GUTTER_W_COMPARED if compared else GUTTER_W))
 
         for i, (name, value) in enumerate(self._items):
-            y = i * row_h + 4
-            bar_w = max(2.0, (width - label_w - 60) * value / max_val)
-            self.canvas.create_text(4, y + 8, text=name, anchor="w", fill=theme.TEXT, font=(theme.FONT_FAMILY, 10))
+            y = i * ROW_H + 4
+            picked = value if self._full else self._selected.get(name, 0)
+            color = color_for_category(name)
+            bar_w = max(2.0, track_w * value / max_val)
+
+            self.canvas.create_text(
+                4, y + 8, text=name, anchor="w",
+                fill=theme.TEXT if picked else theme.MUTED, font=(theme.FONT_FAMILY, 10),
+            )
             self.canvas.create_rectangle(
-                label_w, y, label_w + bar_w, y + 14, fill=color_for_category(name), outline=""
+                LABEL_W, y, LABEL_W + bar_w, y + BAR_H, fill=palette.dim(color), outline=""
+            )
+            if picked:
+                picked_w = max(2.0, track_w * picked / max_val)
+                self.canvas.create_rectangle(LABEL_W, y, LABEL_W + picked_w, y + BAR_H, fill=color, outline="")
+
+            caption = (
+                humanize.size(value)
+                if picked == value
+                else f"{humanize.size(picked)} of {humanize.size(value)}"
             )
             self.canvas.create_text(
-                label_w + bar_w + 6, y + 8, text=humanize.size(value), anchor="w",
+                LABEL_W + bar_w + 6, y + 8, text=caption, anchor="w",
                 fill=theme.MUTED, font=(theme.FONT_FAMILY, 9),
             )

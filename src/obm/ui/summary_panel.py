@@ -1,10 +1,14 @@
 # ---
-# purpose: keep/drop/placeholder donut, the back-up-only-these-kinds selector with an all-at-once
-#          toggle, and a per-category size bar chart, all refreshed after every scan
+# purpose: selected/deselected/dropped donut, the back-up-only-these-kinds selector with an
+#          all-at-once toggle, and a per-category size bar chart -- all of which track what is
+#          still ticked, not just what the scan kept
 # exports: SummaryPanel
 # depends: pipeline/aggregate.py, charts/{bar_chart,donut_chart}, ui/{panel_header,type_filter}
 # gotcha: the Select all label must describe what the NEXT press does, so it is recomputed both
-#         after a scan and after every press
+#         after a scan and after every press.
+#         refresh_selection() must never call update_result(): that rebuilds the type filter rows,
+#         and rebuilding them from a checkbox command destroys the widget that fired it. It is also
+#         debounced, because build_summary() walks every candidate on the Tk thread.
 # ---
 from __future__ import annotations
 
@@ -21,6 +25,10 @@ from .type_filter import TypeFilter
 BAR_CHART_HEIGHT = 130
 SELECT_ALL = "Select all"
 SELECT_NONE = "Select none"
+SELECTION_DEBOUNCE_MS = 250
+
+# selected keeps the accent, the give-up slice greys out, dropped stays the danger red
+DONUT_COLORS = [theme.ACCENT, theme.MUTED, theme.DANGER]
 
 
 class SummaryPanel(ctk.CTkFrame):
@@ -67,6 +75,9 @@ class SummaryPanel(ctk.CTkFrame):
         self.bar_chart = BarChart(content, height=BAR_CHART_HEIGHT)
         self.bar_chart.pack(fill="x", padx=8, pady=8)
 
+        self._result: DryRunResult | None = None
+        self._selection_job: str | None = None
+
     def _toggle_all(self) -> None:
         """One button: first press selects every category, the next press clears them all."""
         self.type_filter.set_all(not self.type_filter.all_selected())
@@ -74,25 +85,55 @@ class SummaryPanel(ctk.CTkFrame):
     def _selection_changed(self) -> None:
         # any change -- one checkbox or the whole lot -- can flip what the button should do next
         self._sync_select_label()
+        self._schedule_charts()
         if self._on_selection_change is not None:
             self._on_selection_change()
 
     def _sync_select_label(self) -> None:
         self.select_button.configure(text=SELECT_NONE if self.type_filter.all_selected() else SELECT_ALL)
 
+    def refresh_selection(self) -> None:
+        """Selection changed somewhere else (a big-file row) -- re-read the records into the
+        checkboxes and the charts, without rebuilding any row."""
+        self.type_filter.refresh_selection()
+        self._sync_select_label()
+        self._schedule_charts()
+
+    def _schedule_charts(self) -> None:
+        if self._selection_job is not None:
+            self.after_cancel(self._selection_job)
+        self._selection_job = self.after(SELECTION_DEBOUNCE_MS, self._draw_charts)
+
     def update_result(self, result: DryRunResult) -> None:
-        summary = build_summary(result.candidates, result.issues)
+        self._result = result
+        self.type_filter.update_result(result)
+        self._sync_select_label()
+        self._draw_charts()
+
+    def _draw_charts(self) -> None:
+        self._selection_job = None
+        if self._result is None:
+            return
+        summary = build_summary(self._result.candidates, self._result.issues)
+        given_up = summary.kept_bytes - summary.selected_bytes
         self.totals_label.configure(
             text=(
-                f"Keep: {humanize.count(summary.kept_count)} files ({humanize.size(summary.kept_bytes)})\n"
+                f"Selected: {humanize.count(summary.selected_count)} files "
+                f"({humanize.size(summary.selected_bytes)})\n"
+                f"Of kept: {humanize.count(summary.kept_count)} files ({humanize.size(summary.kept_bytes)})\n"
                 f"Drop: {humanize.count(summary.dropped_count)} files ({humanize.size(summary.dropped_bytes)})\n"
                 f"Cloud-only skipped: {humanize.count(summary.placeholder_count)}"
             )
         )
-        self.type_filter.update_result(result)
-        self._sync_select_label()
-        self.donut.update_data([
-            ("keep", summary.kept_bytes),
-            ("drop", summary.dropped_bytes),
-        ])
-        self.bar_chart.update_data([(cat, total) for cat, (_, total) in summary.by_category.items()])
+        self.donut.update_data(
+            [
+                ("selected", summary.selected_bytes),
+                ("deselected", given_up),
+                ("drop", summary.dropped_bytes),
+            ],
+            colors=DONUT_COLORS,
+        )
+        self.bar_chart.update_data(
+            [(cat, total) for cat, (_, total) in summary.by_category.items()],
+            selected={cat: total for cat, (_, total) in summary.by_category_selected.items()},
+        )

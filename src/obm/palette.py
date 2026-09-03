@@ -1,6 +1,6 @@
 # ---
 # purpose: one colour per file category, shared by the dashboard charts and the HTML archive index
-# exports: CATEGORY_COLORS, color_for_category()
+# exports: CATEGORY_COLORS, color_for_category(), dim()
 # gotcha: lives outside ui/ on purpose -- archive/ needs these colours and nothing outside ui/
 #         may import from ui/
 # ---
@@ -22,3 +22,10 @@ CATEGORY_COLORS = {
 
 def color_for_category(category: str) -> str:
     return CATEGORY_COLORS.get(category, CATEGORY_COLORS["unknown"])
+
+
+def dim(color: str, factor: float = 0.32) -> str:
+    """The same hue, darkened toward the dark panel background -- how a deselected thing reads:
+    still there, still identifiable by colour, visibly not part of the total any more."""
+    r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    return f"#{int(r * factor):02x}{int(g * factor):02x}{int(b * factor):02x}"
