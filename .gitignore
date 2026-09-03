@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -6,5 +7,29 @@ build/
 dist/
 .venv/
 venv/
+
+# App runtime state (normally in %LOCALAPPDATA%, but never commit a stray copy)
+config.toml
+state.json
+history.json
+carryover.json
+fingerprints.sqlite3
+*.log
+
+# Backup output — real archives of real files
 *.part
+*.7z
+*.rar
+*.zip
+*.manifest.json
+BACKUP-README.txt
+BACKUP-README.html
+
+# Tooling / editor / OS
 .playwright-mcp/
+.claude/settings.local.json
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.env
