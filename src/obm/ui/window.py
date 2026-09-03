@@ -1,10 +1,13 @@
 # ---
-# purpose: assemble the panels, own the worker-thread poll loop, wire scan/run to the pipeline
+# purpose: assemble the panels into resizable panes, own the worker-thread poll loop, wire
+#          scan/run to the pipeline, and persist the window geometry + sash positions on close
 # exports: MainWindow, run_gui()
-# depends: pipeline/{dryrun,execute}, ui/{worker,progress,topbar,summary_panel,bigfiles_panel,
-#          issues_panel,runbar,run_dialog,dialog}
+# depends: pipeline/{dryrun,execute}, config.py, ui/{worker,progress,topbar,summary_panel,
+#          bigfiles_panel,issues_panel,runbar,run_dialog,dialog,layout}
 # gotcha: only this file (plus worker.py) ever calls into pipeline/ -- everything else in ui/ is
-#         presentation-only, which is what lets the UI ship with zero widget tests
+#         presentation-only, which is what lets the UI ship with zero widget tests.
+#         Closing goes through _on_close (WM_DELETE_WINDOW), so the layout is only saved on a real
+#         window close -- a killed process keeps the previous layout.
 # ---
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ import customtkinter as ctk
 from .. import config as config_mod
 from .. import humanize
 from ..pipeline import dryrun, execute
-from . import dialog, theme
+from . import dialog, layout, theme
 from .bigfiles_panel import BigFilesPanel
 from .charts.treemap_view import TreemapPanel
 from .history_panel import open_history_dialog
@@ -29,16 +32,21 @@ from .worker import Worker
 # the dashboard tiles stay capped at 100 rows; the popped-out copy can afford more widgets
 DETAIL_MAX_SHOWN = 500
 
+DEFAULT_GEOMETRY = "1200x750"
+PANEL_MIN_W = 260
+PANEL_MIN_H = 90
+RESTORE_DELAY_MS = 200
+
 
 class MainWindow(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
         theme.apply()
         self.title("own-backup-machine")
-        self.geometry("1200x750")
         self.configure(fg_color=theme.BG)
 
         self.cfg = config_mod.load()
+        self.geometry(self.cfg.layout_geometry or DEFAULT_GEOMETRY)
         self.worker = Worker()
         self.result = None
 
@@ -61,42 +69,51 @@ class MainWindow(ctk.CTk):
         if self.runbar.destination() != self.cfg.destination_path:
             self._on_destination_change(self.runbar.destination())
 
-        body = ctk.CTkFrame(self, fg_color="transparent")
-        body.pack(fill="both", expand=True, padx=12, pady=6)
-        body.grid_columnconfigure(0, weight=1)
-        body.grid_columnconfigure(1, weight=2)
-        body.grid_rowconfigure(0, weight=1)
+        # every divider is a draggable sash: the panels are what the user resizes, and where they
+        # leave them is written back to config.toml on close
+        self.body = layout.make_paned(self, "horizontal")
+        self.body.pack(fill="both", expand=True, padx=12, pady=6)
 
-        left = ctk.CTkFrame(body, fg_color="transparent")
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        # Summary scrolls internally, so it needs a floor rather than a share of the leftovers;
-        # the two list panels below split whatever is left
-        left.grid_rowconfigure(0, weight=0, minsize=320)
-        left.grid_rowconfigure(1, weight=1)
-        left.grid_rowconfigure(2, weight=1)
-        left.grid_columnconfigure(0, weight=1)
+        self.left = layout.make_paned(self.body, "vertical")
 
         self.summary_panel = SummaryPanel(
-            left,
+            self.left,
             on_expand=lambda: self._expand("Summary", SummaryPanel),
             on_selection_change=self._on_selection_change,
         )
-        self.summary_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
-
         self.bigfiles_panel = BigFilesPanel(
-            left, on_expand=lambda: self._expand("Big files", lambda m: BigFilesPanel(m, max_shown=DETAIL_MAX_SHOWN))
+            self.left,
+            on_expand=lambda: self._expand("Big files", lambda m: BigFilesPanel(m, max_shown=DETAIL_MAX_SHOWN)),
         )
-        self.bigfiles_panel.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
-
         self.issues_panel = IssuesPanel(
-            left, on_expand=lambda: self._expand("Issues", lambda m: IssuesPanel(m, max_shown=DETAIL_MAX_SHOWN))
+            self.left,
+            on_expand=lambda: self._expand("Issues", lambda m: IssuesPanel(m, max_shown=DETAIL_MAX_SHOWN)),
         )
-        self.issues_panel.grid(row=2, column=0, sticky="nsew")
+        # Summary scrolls internally, so it opens taller than the two list panels below it
+        self.left.add(self.summary_panel, stretch="never", height=320, minsize=PANEL_MIN_H)
+        self.left.add(self.bigfiles_panel, stretch="always", minsize=PANEL_MIN_H)
+        self.left.add(self.issues_panel, stretch="always", minsize=PANEL_MIN_H)
 
-        self.treemap_panel = TreemapPanel(body, on_expand=lambda: self._expand("Treemap", TreemapPanel))
-        self.treemap_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        self.treemap_panel = TreemapPanel(self.body, on_expand=lambda: self._expand("Treemap", TreemapPanel))
+        self.body.add(self.left, stretch="always", width=420, minsize=PANEL_MIN_W)
+        self.body.add(self.treemap_panel, stretch="always", minsize=PANEL_MIN_W)
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(RESTORE_DELAY_MS, self._restore_layout)
 
         self.start_scan()
+
+    def _restore_layout(self) -> None:
+        self.update_idletasks()
+        layout.apply_sashes(self.body, self.cfg.layout_main_sashes)
+        layout.apply_sashes(self.left, self.cfg.layout_left_sashes)
+
+    def _on_close(self) -> None:
+        self.cfg.layout_geometry = self.geometry()
+        self.cfg.layout_main_sashes = layout.read_sashes(self.body)
+        self.cfg.layout_left_sashes = layout.read_sashes(self.left)
+        config_mod.save(self.cfg)
+        self.destroy()
 
     def _on_selection_change(self) -> None:
         # the type filter mutates CandidateFile.selected directly, so the panels bound to those

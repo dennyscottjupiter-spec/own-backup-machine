@@ -23,3 +23,8 @@ hash_max_mb = 512
 [ui]
 # Files at or above this size (MB) default to a checked "big file" checkbox.
 big_file_mb = 100
+# Window size and panel splitter positions. Written by the app when you close it —
+# leave them alone, or blank them to get the default layout back.
+layout_geometry = ''
+layout_main_sashes = []
+layout_left_sashes = []
