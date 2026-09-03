@@ -1,29 +1,29 @@
 from obm import destinations
 
 
-def test_preferred_drive_is_listed_first_even_when_absent(monkeypatch):
-    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:", "D:"])
+def test_always_offered_drives_are_listed_first_even_when_absent(monkeypatch):
+    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:"])
     monkeypatch.setattr(destinations, "_drive_type", lambda root: 3)
 
     options = destinations.drive_options()
 
     assert options[0] == destinations.PREFERRED_DRIVE
-    assert options == ["X:\\", "C:\\", "D:\\"]
+    assert options == ["X:\\", "D:\\", "E:\\", "C:\\"]
 
 
-def test_preferred_drive_is_not_duplicated_when_present(monkeypatch):
-    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:", "X:"])
+def test_always_offered_drives_are_not_duplicated_when_present(monkeypatch):
+    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:", "D:", "X:"])
     monkeypatch.setattr(destinations, "_drive_type", lambda root: 3)
 
-    assert destinations.drive_options() == ["X:\\", "C:\\"]
+    assert destinations.drive_options() == ["X:\\", "D:\\", "E:\\", "C:\\"]
 
 
 def test_cdrom_and_rootless_drives_are_not_offered(monkeypatch):
-    types = {"C:\\": 3, "E:\\": 5, "Z:\\": 4}
-    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:", "E:", "Z:"])
+    types = {"C:\\": 3, "F:\\": 5, "Z:\\": 4}
+    monkeypatch.setattr(destinations, "list_drive_letters", lambda: ["C:", "F:", "Z:"])
     monkeypatch.setattr(destinations, "_drive_type", lambda root: types[root])
 
-    assert destinations.drive_options() == ["X:\\", "C:\\", "Z:\\"]
+    assert destinations.drive_options() == ["X:\\", "D:\\", "E:\\", "C:\\", "Z:\\"]
 
 
 def test_configured_path_wins_over_the_preferred_drive():
