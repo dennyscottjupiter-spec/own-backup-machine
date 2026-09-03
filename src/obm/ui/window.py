@@ -83,11 +83,12 @@ class MainWindow(ctk.CTk):
         self.summary_panel = SummaryPanel(
             self.left,
             on_expand=lambda: self._expand("Summary", SummaryPanel),
-            on_selection_change=self._on_selection_change,
+            on_selection_change=lambda: self._on_selection_change(origin="summary"),
         )
         self.bigfiles_panel = BigFilesPanel(
             self.left,
             on_expand=lambda: self._expand("Big files", lambda m: BigFilesPanel(m, max_shown=DETAIL_MAX_SHOWN)),
+            on_selection_change=lambda: self._on_selection_change(origin="bigfiles"),
         )
         self.issues_panel = IssuesPanel(
             self.left,
@@ -119,12 +120,17 @@ class MainWindow(ctk.CTk):
         config_mod.save(self.cfg)
         self.destroy()
 
-    def _on_selection_change(self) -> None:
-        # the type filter mutates CandidateFile.selected directly, so the panels bound to those
-        # same records have to be redrawn from their current state
+    def _on_selection_change(self, origin: str = "") -> None:
+        """The one fan-out point: a panel wrote CandidateFile.selected, and every other view of
+        those same records has to be redrawn. `origin` is the panel that fired -- it is skipped
+        because it already redrew itself, and rebuilding it from its own checkbox command would
+        destroy the widget mid-click."""
         if self.result is None:
             return
-        self.bigfiles_panel.update_result(self.result)
+        if origin != "bigfiles":
+            self.bigfiles_panel.refresh_selection()
+        if origin != "summary":
+            self.summary_panel.refresh_selection()
         self.runbar.update_result(self.result)
         self.treemap_panel.refresh_selection()
 
