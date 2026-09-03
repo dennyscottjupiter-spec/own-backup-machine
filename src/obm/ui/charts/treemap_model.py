@@ -3,7 +3,9 @@
 # exports: TreeNode, build_tree()
 # depends: models.CandidateFile, filter/classify.category_of
 # gotcha: children are sorted by size descending HERE, once, so repeated relayouts on resize
-#         never have to re-sort the same subtree
+#         never have to re-sort the same subtree.
+#         selected_only reads CandidateFile.selected, which the Summary type filter mutates in
+#         place -- so the tree has to be rebuilt after a selection change, not just relaid out.
 # ---
 from __future__ import annotations
 
@@ -23,14 +25,19 @@ class TreeNode:
     children: list["TreeNode"] = field(default_factory=list)
 
 
-def build_tree(candidates: list[CandidateFile], include_dropped: bool = False) -> TreeNode:
+def build_tree(
+    candidates: list[CandidateFile], include_dropped: bool = False, selected_only: bool = False
+) -> TreeNode:
     root = TreeNode(name="", path="", is_dir=True)
     index: dict[str, TreeNode] = {"": root}
 
     for c in candidates:
         if "placeholder" in c.tags:
             continue
-        if c.verdict != "keep" and not include_dropped:
+        if c.verdict == "keep":
+            if selected_only and not c.selected:
+                continue
+        elif not include_dropped:
             continue
 
         parts = [p for p in c.path.replace("/", "\\").split("\\") if p]

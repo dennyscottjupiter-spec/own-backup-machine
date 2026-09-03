@@ -50,7 +50,11 @@ class SummaryPanel(ctk.CTkFrame):
         )
         self.totals_label.pack(side="left", padx=8, anchor="center")
 
-        ctk.CTkLabel(content, text="Back up only these kinds", font=theme.body_font(11), text_color=theme.MUTED).pack(
+        ctk.CTkLabel(
+            content, text="Back up only these kinds  —  \"list\" shows what is in one",
+            font=theme.body_font(11),
+            text_color=theme.MUTED,
+        ).pack(
             anchor="w", padx=16, pady=(8, 0)
         )
         self._on_selection_change = on_selection_change

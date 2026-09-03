@@ -53,3 +53,20 @@ def test_placeholders_always_excluded_even_when_dropped_included():
     candidates = [_candidate("C:\\cloud.txt", 10, tags=frozenset({"placeholder"}))]
     root = build_tree(candidates, include_dropped=True)
     assert root.children == []
+
+
+def test_deselected_candidates_dropped_when_selected_only():
+    candidates = [_candidate("C:\\keep.jpg", 100), _candidate("C:\\skip.jpg", 200)]
+    candidates[1].selected = False
+    root = build_tree(candidates, selected_only=True)
+    c_drive = root.children[0]
+    assert [c.name for c in c_drive.children] == ["keep.jpg"]
+    assert c_drive.size == 100
+
+
+def test_selected_only_does_not_hide_dropped_files_shown_on_request():
+    """`selected` is only meaningful for kept files -- the filtered view must still show drops."""
+    candidates = [_candidate("C:\\dropped.log", 10, verdict="drop")]
+    candidates[0].selected = False
+    root = build_tree(candidates, include_dropped=True, selected_only=True)
+    assert root.children[0].children[0].category == "filtered"

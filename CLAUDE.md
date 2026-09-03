@@ -89,7 +89,13 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   `config.toml` on launch and saves them back in `_on_close`.
   `type_filter.py` is the Summary panel's "back up only these kinds" selector: it writes
   `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
-  panel and the run bar from its `on_change` callback.
+  panel, the run bar and the treemap from its `on_change` callback. Each category also carries a
+  `list` button that opens `category_peek.py` — that category's biggest files grouped by folder,
+  so a checkbox is never a blind guess.
+  The treemap builds from `selected` too (`build_tree(..., selected_only=True)`), so deselecting a
+  category removes its tiles; `TreemapPanel.refresh_selection()` debounces that rebuild because
+  `build_tree` walks every candidate on the Tk thread, and it re-walks the breadcrumb so a
+  selection change does not bounce the user back to the root.
   `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` — plus
   `X:`, `D:` and `E:` whether or not they are present, plus Desktop and Downloads — and a folder
   browser, and `window.py` persists each pick to `config.toml` immediately.

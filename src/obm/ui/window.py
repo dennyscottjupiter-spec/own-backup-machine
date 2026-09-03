@@ -126,6 +126,7 @@ class MainWindow(ctk.CTk):
             return
         self.bigfiles_panel.update_result(self.result)
         self.runbar.update_result(self.result)
+        self.treemap_panel.refresh_selection()
 
     def _expand(self, title: str, factory) -> None:
         dialog.open_panel_window(self, title, factory, self.result)

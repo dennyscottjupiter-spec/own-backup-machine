@@ -5,7 +5,9 @@
 # depends: treemap_model.py, treemap_layout.py, treemap_interact.py, canvas_base.py, ui/worker.py,
 #          ui/panel_header.py, ui/dialog.py
 # gotcha: model+layout run on the worker thread (Worker), NOT the Tk thread -- only drawing
-#         touches the canvas directly, chunked at CHUNK_SIZE items per after_idle
+#         touches the canvas directly, chunked at CHUNK_SIZE items per after_idle.
+#         refresh_selection() is debounced because build_tree() walks every candidate on the Tk
+#         thread, and the Summary type filter can fire it once per checkbox press.
 # ---
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ from .treemap_model import TreeNode, build_tree
 
 CHUNK_SIZE = 250
 RESIZE_DEBOUNCE_MS = 120
+SELECTION_DEBOUNCE_MS = 250
 
 
 class TreemapPanel(ctk.CTkFrame):
@@ -60,17 +63,38 @@ class TreemapPanel(ctk.CTkFrame):
         self._show_filtered = False
         self._breadcrumb: list[TreeNode] = []
         self._resize_job: str | None = None
+        self._selection_job: str | None = None
         self._generation = 0
 
     def update_result(self, result) -> None:
         self._result = result
         self._rebuild_tree()
 
+    def refresh_selection(self) -> None:
+        """The Summary type filter changed which categories are in play -- redraw what is left."""
+        if self._selection_job is not None:
+            self.after_cancel(self._selection_job)
+        self._selection_job = self.after(SELECTION_DEBOUNCE_MS, self._on_selection_debounced)
+
+    def _on_selection_debounced(self) -> None:
+        self._selection_job = None
+        self._rebuild_tree()
+
     def _rebuild_tree(self) -> None:
         if self._result is None:
             return
-        root = build_tree(self._result.candidates, include_dropped=self._show_filtered)
+        # a selection change must not bounce the user back to the root of a folder they drilled
+        # into, so the same path is walked again on the new tree and abandoned where it runs out
+        drilled = [n.path for n in self._breadcrumb[1:]]
+        root = build_tree(
+            self._result.candidates, include_dropped=self._show_filtered, selected_only=True
+        )
         self._breadcrumb = [root]
+        for path in drilled:
+            node = self._find(self._breadcrumb[-1], path)
+            if node is None or not node.is_dir or not node.children:
+                break
+            self._breadcrumb.append(node)
         self._update_breadcrumb_label()
         self._request_layout()
 

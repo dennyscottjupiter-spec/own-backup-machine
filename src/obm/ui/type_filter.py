@@ -2,9 +2,11 @@
 # purpose: "back up only these kinds" -- one checkbox per file category, toggling
 #          CandidateFile.selected, plus an all-categories-at-once toggle
 # exports: TypeFilter
-# depends: filter/classify.py, humanize.py, ui/theme.py
+# depends: filter/classify.py, humanize.py, ui/{theme,category_peek}
 # gotcha: acts on every kept candidate of a category, not on the rows any other panel shows, so
-#         panels bound to the same records must be refreshed from the on_change callback
+#         panels bound to the same records must be refreshed from the on_change callback.
+#         The peek button is the word "list", not a glyph: at two columns there is room for it,
+#         and an emoji magnifier renders as tofu on a stock Windows Tk.
 # ---
 from __future__ import annotations
 
@@ -16,8 +18,10 @@ from .. import humanize
 from ..filter.classify import category_of
 from ..models import CandidateFile, DryRunResult
 from . import theme
+from .category_peek import open_category_window
 
-COLUMNS = 3
+COLUMNS = 2
+PEEK_LABEL = "list"
 
 
 class TypeFilter(ctk.CTkFrame):
@@ -69,8 +73,13 @@ class TypeFilter(ctk.CTkFrame):
             def on_toggle(cat: str = category, v: ctk.BooleanVar = var) -> None:
                 self._set_category(cat, v.get())
 
+            def on_peek(cat: str = category) -> None:
+                open_category_window(self.winfo_toplevel(), cat, self._by_category.get(cat, []))
+
+            cell = ctk.CTkFrame(self, fg_color="transparent")
+            cell.grid(row=index // COLUMNS, column=index % COLUMNS, sticky="w", padx=4, pady=2)
             ctk.CTkCheckBox(
-                self,
+                cell,
                 text=f"{category} ({humanize.count(len(files))}, {humanize.size(total)})",
                 variable=var,
                 command=on_toggle,
@@ -78,7 +87,12 @@ class TypeFilter(ctk.CTkFrame):
                 font=theme.body_font(11),
                 checkbox_width=16,
                 checkbox_height=16,
-            ).grid(row=index // COLUMNS, column=index % COLUMNS, sticky="w", padx=4, pady=2)
+            ).pack(side="left")
+            ctk.CTkButton(
+                cell, text=PEEK_LABEL, width=38, height=20, fg_color=theme.BG,
+                hover_color=theme.ACCENT, text_color=theme.MUTED,
+                font=theme.body_font(10), command=on_peek,
+            ).pack(side="left", padx=(6, 0))
 
     def _set_category(self, category: str, selected: bool) -> None:
         for c in self._by_category.get(category, ()):
