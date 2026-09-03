@@ -1,7 +1,9 @@
 # ---
 # purpose: the persisted state shape — per-volume USN cursor + last successful run
 # exports: SCHEMA_VERSION, VolumeState, AppState
-# gotcha: keyed by volume GUID path, never by drive letter — letters get reassigned
+# gotcha: keyed by volume GUID path, never by drive letter — letters get reassigned.
+#         last_scan_files is only how many files the previous scan walked past: it feeds the
+#         scan percentage in the UI and must never gate what a scan yields
 # ---
 from __future__ import annotations
 
@@ -23,3 +25,4 @@ class VolumeState:
 class AppState:
     schema_version: int = SCHEMA_VERSION
     volumes: dict[str, VolumeState] = field(default_factory=dict)
+    last_scan_files: int = 0

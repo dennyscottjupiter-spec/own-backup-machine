@@ -2,8 +2,8 @@
 # purpose: assemble the panels into resizable panes, own the worker-thread poll loop, wire
 #          scan/run to the pipeline, and persist the window geometry + sash positions on close
 # exports: MainWindow, run_gui()
-# depends: pipeline/{dryrun,execute}, config.py, ui/{worker,progress,topbar,summary_panel,
-#          bigfiles_panel,issues_panel,runbar,run_dialog,dialog,layout}
+# depends: pipeline/{dryrun,execute}, config.py, ui/{worker,progress,topbar,scan_banner,
+#          summary_panel,bigfiles_panel,issues_panel,runbar,run_dialog,dialog,layout}
 # gotcha: only this file (plus worker.py) ever calls into pipeline/ -- everything else in ui/ is
 #         presentation-only, which is what lets the UI ship with zero widget tests.
 #         Closing goes through _on_close (WM_DELETE_WINDOW), so the layout is only saved on a real
@@ -21,9 +21,10 @@ from .bigfiles_panel import BigFilesPanel
 from .charts.treemap_view import TreemapPanel
 from .history_panel import open_history_dialog
 from .issues_panel import IssuesPanel
-from .progress import ProgressState
+from .progress import ProgressState, ScanState
 from .run_dialog import RunProgressDialog
 from .runbar import RunBar
+from .scan_banner import ScanBanner
 from .settings_dialog import open_settings_dialog
 from .summary_panel import SummaryPanel
 from .topbar import TopBar
@@ -73,6 +74,9 @@ class MainWindow(ctk.CTk):
         # leave them is written back to config.toml on close
         self.body = layout.make_paned(self, "horizontal")
         self.body.pack(fill="both", expand=True, padx=12, pady=6)
+
+        # packed only while a scan runs, and always before= the body for the same packer reason
+        self.scan_banner = ScanBanner(self)
 
         self.left = layout.make_paned(self.body, "vertical")
 
@@ -137,14 +141,19 @@ class MainWindow(ctk.CTk):
     def start_scan(self) -> None:
         self.topbar.set_status("Scanning...")
         self.runbar.set_enabled(False)
-        self.worker.submit(lambda: dryrun.run(self.cfg))
-        self.after(100, self._poll_scan)
+        scan = ScanState()
+        self.scan_banner.show(before=self.body)
+        self.worker.submit(lambda: dryrun.run(self.cfg, on_scan=scan.update))
+        self.after(100, lambda: self._poll_scan(scan))
 
-    def _poll_scan(self) -> None:
+    def _poll_scan(self, scan: ScanState) -> None:
+        self.scan_banner.update_scan(*scan.snapshot())
+
         item = self.worker.poll()
         if item is None:
-            self.after(100, self._poll_scan)
+            self.after(100, lambda: self._poll_scan(scan))
             return
+        self.scan_banner.hide()
         kind, payload = item
         if kind == "error":
             # also on the run bar, where the Copy button can hand over the traceback

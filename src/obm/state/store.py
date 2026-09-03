@@ -32,7 +32,11 @@ def load() -> AppState:
         return AppState()
 
     volumes = {k: VolumeState(**v) for k, v in raw.get("volumes", {}).items()}
-    return AppState(schema_version=raw.get("schema_version", SCHEMA_VERSION), volumes=volumes)
+    return AppState(
+        schema_version=raw.get("schema_version", SCHEMA_VERSION),
+        volumes=volumes,
+        last_scan_files=int(raw.get("last_scan_files", 0)),
+    )
 
 
 def save(state: AppState) -> None:
@@ -45,6 +49,7 @@ def save(state: AppState) -> None:
                 {
                     "schema_version": state.schema_version,
                     "volumes": {k: asdict(v) for k, v in state.volumes.items()},
+                    "last_scan_files": state.last_scan_files,
                 },
                 f,
                 indent=2,

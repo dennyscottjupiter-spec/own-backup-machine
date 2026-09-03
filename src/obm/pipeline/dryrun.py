@@ -1,11 +1,14 @@
 # ---
 # purpose: scan every configured volume, score each candidate, no archiving — the --dry-run path
-# exports: run(), run_cli()
+# exports: run(), run_cli(), SCAN_TICK
 # depends: scan/{plan,walk_scanner,issues}, filter/{matcher,classify}, pipeline/aggregate
+# gotcha: run() saves how many files it walked past (state.last_scan_files) so the next scan can
+#         show a real percentage -- it is a UI estimate and never gates what a scan yields
 # ---
 from __future__ import annotations
 
 import time
+from typing import Callable
 
 from .. import config as config_mod
 from .. import humanize
@@ -22,10 +25,19 @@ from ..winapi import volumes
 from . import aggregate
 
 
-def run(cfg: config_mod.Config) -> DryRunResult:
+SCAN_TICK = 250  # files between progress callbacks -- often enough to feel live, rare enough to be free
+
+
+def run(
+    cfg: config_mod.Config,
+    on_scan: Callable[[int, int, str], None] | None = None,
+) -> DryRunResult:
+    """`on_scan(seen, expected, path)` fires every SCAN_TICK files; `expected` is what the previous
+    scan walked past, or 0 the first time, when there is nothing honest to divide by."""
     vols = volumes.list_volumes()
     app_state = state_store.load()
     plans = plan_mod.build_plan(vols, cfg, stored_states=app_state.volumes)
+    expected = app_state.last_scan_files
 
     candidates: list[CandidateFile] = []
     all_issues = []
@@ -43,8 +55,13 @@ def run(cfg: config_mod.Config) -> DryRunResult:
                         item.verdict = "drop"
                         item.drop_rule = "unchanged-fingerprint"
                     candidates.append(item)
+                    if on_scan and len(candidates) % SCAN_TICK == 0:
+                        on_scan(len(candidates), expected, item.path)
                 else:
                     all_issues.append(item)
+
+    app_state.last_scan_files = len(candidates)
+    state_store.save(app_state)
 
     # off the Tk thread on purpose: the UI lists issues biggest-first and needs their sizes
     issues_mod.resolve_sizes(all_issues)
