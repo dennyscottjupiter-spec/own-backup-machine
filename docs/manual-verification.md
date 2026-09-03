@@ -1,7 +1,7 @@
 ---
 title: Manual verification checklist (DESKTOP only)
 status: current
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # Manual verification checklist
@@ -44,6 +44,19 @@ against production data.
       `[destination] path` into `config.toml` immediately (no Settings round-trip).
 - [ ] `X:`, `D:` and `E:` are still offered while unmapped or absent, and a run against a missing
       one fails with a readable message rather than a traceback.
+- [ ] **Desktop** and **Downloads** in the dropdown point at the folders DESKTOP really uses —
+      if OneDrive Backup is on there, they must be the redirected `...\OneDrive\Desktop` paths
+      (`winapi/knownfolders.py` asks Windows; `%USERPROFILE%\Desktop` would be wrong).
+
+## The archive README and the finished-run screen
+
+- [ ] After a real run, `BACKUP-README.txt` is at the **root** of the archive (7-Zip and WinRAR
+      take different flags for that) and its folder tree matches what was actually archived,
+      with accented paths intact.
+- [ ] The finish screen's **Open folder** opens Explorer with the archive already selected, and
+      **Open archive** opens it in the installed archiver.
+- [ ] Force a failure (point the destination at a disconnected drive): the run bar line turns red
+      and its Copy button yields the full traceback, pasteable into a bug report.
 
 ## Hard part 4 — carryover
 

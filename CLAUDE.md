@@ -63,9 +63,11 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
 - **`pipeline/`** — `dryrun.run()` produces the `DryRunResult` everything else consumes;
   `execute.run()` archives and then commits cursors + fingerprints + history + carryover as one
   unit, only after a verified write, narrating each step through its `on_stage` callback. `aggregate.py` is the read-only summary used by CLI and UI.
-- **`archive/`** — three backends with an identical `create()`/`verify()` signature, chosen by
-  `detect.py`. `writer.py` compresses to local disk, verifies, copies to the destination as
-  `.part`, then `os.replace`s it.
+- **`archive/`** — three backends with identical `create()`/`verify()`/`add_readme()` signatures,
+  chosen by `detect.py`. `writer.py` compresses to local disk, adds `readme.py`'s
+  `BACKUP-README.txt` at the archive root, verifies, copies to the destination as `.part`, then
+  `os.replace`s it. `readme.py` is pure text assembly over the already-scanned records — it never
+  touches the filesystem.
 - **`state/`** — JSON `store.py` (atomic tmp+replace) for cursors, sqlite `fingerprints.py` for
   archived-file identity, `carryover.py` for files that were locked/denied and must be reinjected
   next run regardless of cursor position.
@@ -84,10 +86,16 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
   panel and the run bar from its `on_change` callback.
   `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` — plus
-  `X:`, `D:` and `E:` whether or not they are present — and a folder browser, and `window.py`
-  persists each pick to `config.toml` immediately.
+  `X:`, `D:` and `E:` whether or not they are present, plus Desktop and Downloads — and a folder
+  browser, and `window.py` persists each pick to `config.toml` immediately.
+  `issues_panel.py` renders one collapsed row per root folder from `scan/issues.py::group_by_root`
+  and builds a group's children only on its first expand.
   `run_dialog.py` + `hourglass.py` are the live run window: the pipeline's `on_stage` messages
-  land in `ProgressState` and the poll loop replays them as a stage log.
+  land in `ProgressState` and the poll loop replays them as a stage log; its finish screen names
+  the sidecar files and opens the archive through `open_path.py`.
+  `copy_button.py` is the shared ⧉ Copy button — Issues, the run bar's failure line, and a failed
+  run's outcome all use it; `worker.py` formats the traceback into a `WorkerError` so there is
+  something to copy.
 
 ### Invariants worth not breaking
 
@@ -101,6 +109,9 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   means *locally present*, so it must not gate placeholder detection (`filter/classify.py`).
 - **Never pre-check elevation before opening the USN journal** — attempt the open and treat failure
   as "walk this volume". Elevation is not the only reason it can fail.
+- **Fixed strips are packed before the expanding body inside dialogs too** — `run_dialog.py`'s
+  action bar and the run bar's Copy button both pack with `side="bottom"` / `before=` for exactly
+  this reason.
 - **The three archive backends stay signature-identical**, and their listfile encodings differ
   (7-Zip UTF-8 with `-scsUTF-8`, WinRAR UTF-16LE **with BOM**). Swapping them corrupts non-ASCII paths.
 - `paths.py` is the only module allowed to touch `__file__` (PyInstaller-frozen safety).

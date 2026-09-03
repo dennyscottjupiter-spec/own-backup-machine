@@ -16,14 +16,20 @@ Delta-only backup engines already exist (restic, Kopia, rclone, Syncthing...). W
   would actually archive, before it touches anything, plus a "back up only these kinds"
   per-category selector in the Summary panel.
 - **A destination picker in the run bar** — every writable drive (`X:`, `D:` and `E:` are always
-  offered, even when unmapped) plus a folder browser, saved back to `config.toml` the moment you
-  pick one.
+  offered, even when unmapped) plus **Desktop** and **Downloads** (asked of Windows, so OneDrive
+  redirection is handled) and a folder browser, saved back to `config.toml` the moment you pick one.
 - **A dashboard you can resize** — drag the splitter between any two panels; the window size and
   every splitter position are restored on the next launch. `Esc` closes any popup window, and the
-  Issues panel lists the biggest offender first, each row prefixed with `[size]`.
+  Issues panel collapses to **one row per root folder** — biggest first, prefixed with `[size]` —
+  so one noisy folder and its subfolders cannot bury everything else. Click a row to expand it.
 - **A live run window** — an hourglass and a running log of exactly what the archive step is
-  doing (lock check, compression, verification, copy, state commit), and a Copy button on the
-  Issues panel that puts every issue on the clipboard for pasting into a bug report.
+  doing (lock check, compression, verification, copy, state commit). When it finishes, it opens
+  the archive or its folder for you and names everything the run wrote. When it fails, a Copy
+  button hands over the whole traceback — as does the one on the Issues panel.
+- **A plain-text index inside every archive** — `BACKUP-README.txt` at the archive root: how many
+  files of which kinds, the folder tree with per-folder counts and sizes, and the full file list.
+  No clicking through folders to see what was backed up. The same listing, plus every scan issue,
+  is written next to the archive as `<archive-name>.manifest.json`.
 
 ## Requirements
 
