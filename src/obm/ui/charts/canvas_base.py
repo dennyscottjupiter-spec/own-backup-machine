@@ -1,6 +1,7 @@
 # ---
-# purpose: shared Canvas drawing helpers -- category palette, cached text truncation, tile drawing
+# purpose: shared Canvas drawing helpers -- cached text truncation, tile drawing
 # exports: CATEGORY_COLORS, color_for_category(), truncate(), draw_tile()
+# depends: palette.py, ui/theme.py
 # gotcha: truncate() calls font.measure() at most twice (full string, one candidate) -- measuring
 #         every tile on every frame is exactly the freeze source Hard Part 7 warns about
 # ---
@@ -9,26 +10,13 @@ from __future__ import annotations
 import tkinter as tk
 import tkinter.font as tkfont
 
+from ... import palette
 from .. import theme
 
-CATEGORY_COLORS = {
-    "document": "#3b82f6",
-    "photo": "#22c55e",
-    "video": "#ef4444",
-    "audio": "#f59e0b",
-    "code": "#8b5cf6",
-    "archive": "#06b6d4",
-    "program": "#ec4899",
-    "llm model": "#14b8a6",
-    "unknown": "#6b7280",
-    "filtered": "#7f1d1d",
-}
+CATEGORY_COLORS = palette.CATEGORY_COLORS
+color_for_category = palette.color_for_category
 
 _avg_char_width_cache: dict[str, float] = {}
-
-
-def color_for_category(category: str) -> str:
-    return CATEGORY_COLORS.get(category, CATEGORY_COLORS["unknown"])
 
 
 def _avg_char_width(font: tkfont.Font) -> float:

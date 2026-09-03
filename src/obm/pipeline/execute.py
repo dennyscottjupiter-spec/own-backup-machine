@@ -1,7 +1,7 @@
 # ---
 # purpose: scan, archive, and commit state as ONE unit -- only on a verified success
 # exports: run(), run_cli()
-# depends: pipeline/dryrun.py, archive/{detect,naming,writer,manifest,readme}, state/{cursors,store,fingerprints,carryover,history}
+# depends: pipeline/dryrun.py, archive/{detect,naming,writer,manifest,readme,readme_html}, state/{cursors,store,fingerprints,carryover,history}
 # gotcha: a locked/denied file is caught by a pre-flight open, not by parsing 7z/rar stderr --
 #         that is what makes carryover backend-agnostic
 # ---
@@ -14,7 +14,7 @@ from typing import Callable
 
 from .. import config as config_mod
 from .. import humanize
-from ..archive import detect, manifest, naming, readme, writer
+from ..archive import detect, manifest, naming, readme, readme_html, writer
 from ..models import CandidateFile, DryRunResult, RunRecord
 from ..scan import usn_journal
 from ..state import carryover
@@ -111,6 +111,15 @@ def run(
     writer.cleanup_stale_parts(cfg.destination_path)
     archive_filename = naming.archive_name(tool.name, run_started)
 
+    # the text and HTML indexes are the same content in two formats -- one set of inputs
+    readme_args = dict(
+        archive_name=archive_filename,
+        run_id=run_id,
+        created=run_started,
+        tool_label=f"{tool.name} level {cfg.archive_level}",
+        files=to_archive,
+    )
+
     final_path = writer.write_archive(
         tool,
         cfg.archive_level,
@@ -119,13 +128,8 @@ def run(
         archive_filename,
         on_progress,
         on_stage,
-        readme_text=readme.build(
-            archive_name=archive_filename,
-            run_id=run_id,
-            created=run_started,
-            tool_label=f"{tool.name} level {cfg.archive_level}",
-            files=to_archive,
-        ),
+        readme_text=readme.build(**readme_args),
+        readme_html=readme_html.build(**readme_args),
     )
 
     finished = datetime.now(timezone.utc)

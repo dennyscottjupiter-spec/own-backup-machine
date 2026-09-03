@@ -6,6 +6,7 @@ import pytest
 from obm.archive import writer
 from obm.archive.detect import DetectedTool
 from obm.archive.readme import README_NAME
+from obm.archive.readme_html import HTML_NAME
 
 
 def _make_files(tmp_path):
@@ -40,6 +41,21 @@ def test_the_readme_lands_at_the_archive_root(tmp_path):
     with zipfile.ZipFile(final) as zf:
         assert README_NAME in zf.namelist()
         assert zf.read(README_NAME).decode("utf-8") == "what is in here"
+
+
+def test_both_readmes_land_at_the_archive_root(tmp_path):
+    files = _make_files(tmp_path)
+    dest = tmp_path / "dest"
+    tool = DetectedTool(name="zip", exe_path="")
+
+    final = writer.write_archive(
+        tool, level=1, files=files, dest_dir=str(dest), archive_filename="out.zip",
+        readme_text="what is in here", readme_html="<!doctype html><p>what is in here</p>",
+    )
+
+    with zipfile.ZipFile(final) as zf:
+        assert {README_NAME, HTML_NAME} <= set(zf.namelist())
+        assert zf.read(HTML_NAME).decode("utf-8").startswith("<!doctype html>")
 
 
 def test_no_readme_text_means_no_readme_entry(tmp_path):
