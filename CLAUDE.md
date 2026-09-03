@@ -88,14 +88,28 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   reads/writes their sash positions; `window.py` restores them (plus the window geometry) from
   `config.toml` on launch and saves them back in `_on_close`.
   `type_filter.py` is the Summary panel's "back up only these kinds" selector: it writes
-  `CandidateFile.selected` straight onto the shared records, so `window.py` redraws the Big files
-  panel, the run bar and the treemap from its `on_change` callback. Each category also carries a
+  `CandidateFile.selected` straight onto the shared records. Each category also carries a
   `list` button that opens `category_peek.py` — that category's biggest files grouped by folder,
   so a checkbox is never a blind guess.
-  The treemap builds from `selected` too (`build_tree(..., selected_only=True)`), so deselecting a
-  category removes its tiles; `TreemapPanel.refresh_selection()` debounces that rebuild because
-  `build_tree` walks every candidate on the Tk thread, and it re-walks the breadcrumb so a
-  selection change does not bounce the user back to the root.
+  `bigfiles_panel.py` writes `selected` per file the same way, so **both** panels are sources of
+  truth and every view has to follow either one. `MainWindow._on_selection_change(origin=...)` is
+  the single fan-out point that redraws the rest; `origin` names the panel that fired so it is
+  skipped, because rebuilding a panel from inside its own checkbox command destroys the widget
+  mid-click. That is why the follow-along paths (`SummaryPanel.refresh_selection`,
+  `TypeFilter.refresh_selection`, `BigFilesPanel.refresh_selection`) only re-read the records into
+  existing widgets and never create or destroy one — `update_result` is the rebuilding path, and
+  is only ever called from a fresh scan.
+  The Summary's own donut, totals and bar chart follow `selected` too, via the
+  `selected_count` / `selected_bytes` / `by_category_selected` fields `build_summary` fills in
+  alongside the untouched scan totals. Deselected mass is **dimmed, never deleted**: the bar keeps
+  its full-length `palette.dim()` bar and reads `<selected> of <scan total>`, and the donut grows a
+  grey `deselected` slice — the user is choosing what to give up and has to see it. Deselecting
+  never moves bytes from kept to dropped (`tests/test_aggregate_selection.py`).
+  The treemap builds from `selected` too (`build_tree(..., selected_only=...)`, its header switch,
+  on by default), so deselecting a category removes its tiles;
+  `TreemapPanel.refresh_selection()` and `SummaryPanel._schedule_charts()` both debounce their
+  rebuild because `build_tree` and `build_summary` walk every candidate on the Tk thread, and the
+  treemap re-walks the breadcrumb so a selection change does not bounce the user back to the root.
   `dest_picker.py` (in the run bar) offers every writable drive from `destinations.py` — plus
   `X:`, `D:` and `E:` whether or not they are present, plus Desktop and Downloads — and a folder
   browser, and `window.py` persists each pick to `config.toml` immediately.
@@ -122,7 +136,8 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   percentage in the UI.
 - **Nothing outside `ui/` may import from `ui/`** — enforced by `tests/test_import_boundaries.py`.
   `palette.py` sits at the top level for exactly this reason: `archive/readme_html.py` needs the
-  category colours the charts use.
+  category colours the charts use, and `palette.dim()` next to them is what a deselected thing
+  is drawn with.
   The one exemption is `__main__.py`, the composition root, which imports `ui/window.py` *inside*
   `main()` so a headless `--run` never imports tkinter.
 - **Fixed strips are packed before the expanding body** in `ui/window.py`. The dashboard's natural

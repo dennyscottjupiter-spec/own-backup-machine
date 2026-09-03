@@ -48,6 +48,26 @@ against production data.
       if OneDrive Backup is on there, they must be the redirected `...\OneDrive\Desktop` paths
       (`winapi/knownfolders.py` asks Windows; `%USERPROFILE%\Desktop` would be wrong).
 
+## The selection agrees with itself
+
+Proven on ~200 synthetic records in a dev session; the real dataset is the only place the
+per-press rebuilds are actually under load.
+
+- [ ] Untick one category in the Summary. Every one of these moves in the same press: the donut
+      grows a grey **deselected** slice, the `Selected:` line drops while `Of kept:` stays put,
+      that category's bar goes dim and reads `0 B of <scan total>`, its rows in **Big files** grey
+      out and lose their ticks, the treemap loses those tiles, and the **Run** button's file count
+      and size shrink.
+- [ ] Untick one file in **Big files**. The Summary, the treemap and the Run button all follow,
+      the row you clicked is still there (not destroyed mid-click), and its category checkbox in
+      the Summary stays ticked while other files of that kind are still selected.
+- [ ] Turn **Selected only** off in the treemap header with categories deselected: the full
+      picture comes back and the Summary checkboxes stay unticked. Turning it back on restores the
+      selected-only view without bouncing you out of a folder you drilled into.
+- [ ] Press category checkboxes rapidly on the real `C:` (100k+ files). The UI must not freeze and
+      the treemap must settle — the debounces in `summary_panel.py` and `treemap_view.py` are what
+      keep one full `build_summary()` / `build_tree()` walk from running per press.
+
 ## Nothing goes missing between runs
 
 - [ ] Run once with a whole category unticked in the Summary panel. On the **next** scan those
