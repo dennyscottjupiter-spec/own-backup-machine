@@ -1,9 +1,11 @@
 # ---
-# purpose: build locally -> verify -> copy -> .part -> os.replace — the crash-safe archive write
+# purpose: build locally -> add the README -> verify -> copy -> .part -> os.replace — the
+#          crash-safe archive write
 # exports: write_archive(), cleanup_stale_parts()
-# depends: detect.DetectedTool, sevenzip.py, winrar.py, zipfallback.py
+# depends: detect.DetectedTool, sevenzip.py, winrar.py, zipfallback.py, readme.py
 # gotcha: compress on local disk THEN copy to the destination — a mid-compress failure over SMB
-#         would leave an unverifiable file; os.replace on the destination volume is atomic
+#         would leave an unverifiable file; os.replace on the destination volume is atomic.
+#         The README goes in BEFORE verify(), so a broken readme add can never ship
 # ---
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import shutil
 import tempfile
 from typing import Callable
 
+from . import readme as readme_mod
 from . import sevenzip, winrar, zipfallback
 from .detect import DetectedTool
 
@@ -33,6 +36,14 @@ def cleanup_stale_parts(dest_dir: str) -> list[str]:
     return removed
 
 
+def _add_readme(backend, tool: DetectedTool, level: int, staging: str, readme_text: str) -> None:
+    readme_path = readme_mod.write_temp(readme_text)
+    try:
+        backend.add_readme(tool.exe_path, level, staging, readme_path)
+    finally:
+        shutil.rmtree(os.path.dirname(readme_path), ignore_errors=True)
+
+
 def write_archive(
     tool: DetectedTool,
     level: int,
@@ -41,6 +52,7 @@ def write_archive(
     archive_filename: str,
     on_progress: Callable[[int, int], None] | None = None,
     on_stage: Callable[[str], None] | None = None,
+    readme_text: str = "",
 ) -> str:
     backend = _BACKENDS[tool.name]
     os.makedirs(dest_dir, exist_ok=True)
@@ -56,6 +68,9 @@ def write_archive(
     say(f"Compressing {len(files)} files to {staging}")
     backend.create(tool.exe_path, level, staging, files, on_progress)
     try:
+        if readme_text:
+            say(f"Adding {readme_mod.README_NAME}")
+            _add_readme(backend, tool, level, staging, readme_text)
         say("Verifying the archive")
         if not backend.verify(tool.exe_path, staging):
             raise RuntimeError("archive failed verification, aborting")

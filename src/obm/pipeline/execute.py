@@ -1,7 +1,7 @@
 # ---
 # purpose: scan, archive, and commit state as ONE unit -- only on a verified success
 # exports: run(), run_cli()
-# depends: pipeline/dryrun.py, archive/{detect,naming,writer,manifest}, state/{cursors,store,fingerprints,carryover,history}
+# depends: pipeline/dryrun.py, archive/{detect,naming,writer,manifest,readme}, state/{cursors,store,fingerprints,carryover,history}
 # gotcha: a locked/denied file is caught by a pre-flight open, not by parsing 7z/rar stderr --
 #         that is what makes carryover backend-agnostic
 # ---
@@ -14,7 +14,7 @@ from typing import Callable
 
 from .. import config as config_mod
 from .. import humanize
-from ..archive import detect, manifest, naming, writer
+from ..archive import detect, manifest, naming, readme, writer
 from ..models import CandidateFile, DryRunResult, RunRecord
 from ..scan import usn_journal
 from ..state import carryover
@@ -119,6 +119,13 @@ def run(
         archive_filename,
         on_progress,
         on_stage,
+        readme_text=readme.build(
+            archive_name=archive_filename,
+            run_id=run_id,
+            created=run_started,
+            tool_label=f"{tool.name} level {cfg.archive_level}",
+            files=to_archive,
+        ),
     )
 
     finished = datetime.now(timezone.utc)
@@ -134,7 +141,7 @@ def run(
     )
 
     say("Writing the manifest")
-    manifest.write(final_path + ".manifest.json", manifest.build(record, to_archive, result.issues))
+    manifest.write(final_path + manifest.MANIFEST_SUFFIX, manifest.build(record, to_archive, result.issues))
 
     # Commit cursors + fingerprints + history + carryover as one unit, only now that
     # the archive is verified and renamed into place. Every completed run -- walk or usn --

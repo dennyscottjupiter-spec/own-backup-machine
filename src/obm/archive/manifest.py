@@ -1,6 +1,6 @@
 # ---
 # purpose: sidecar JSON describing an archive's contents — the history panel never opens the archive
-# exports: build(), write(), read()
+# exports: MANIFEST_SUFFIX, build(), write(), read()
 # depends: models.py
 # ---
 from __future__ import annotations
@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 
 from ..models import CandidateFile, RunRecord, ScanIssue
+
+MANIFEST_SUFFIX = ".manifest.json"
 
 
 def build(run: RunRecord, files: list[CandidateFile], issues: list[ScanIssue]) -> dict:

@@ -1,9 +1,11 @@
 import os
+import zipfile
 
 import pytest
 
 from obm.archive import writer
 from obm.archive.detect import DetectedTool
+from obm.archive.readme import README_NAME
 
 
 def _make_files(tmp_path):
@@ -23,6 +25,32 @@ def test_zip_roundtrip_creates_verified_archive(tmp_path):
 
     assert os.path.exists(final)
     assert not os.path.exists(final + ".part")
+
+
+def test_the_readme_lands_at_the_archive_root(tmp_path):
+    files = _make_files(tmp_path)
+    dest = tmp_path / "dest"
+    tool = DetectedTool(name="zip", exe_path="")
+
+    final = writer.write_archive(
+        tool, level=1, files=files, dest_dir=str(dest), archive_filename="out.zip",
+        readme_text="what is in here",
+    )
+
+    with zipfile.ZipFile(final) as zf:
+        assert README_NAME in zf.namelist()
+        assert zf.read(README_NAME).decode("utf-8") == "what is in here"
+
+
+def test_no_readme_text_means_no_readme_entry(tmp_path):
+    files = _make_files(tmp_path)
+    dest = tmp_path / "dest"
+    tool = DetectedTool(name="zip", exe_path="")
+
+    final = writer.write_archive(tool, level=1, files=files, dest_dir=str(dest), archive_filename="out.zip")
+
+    with zipfile.ZipFile(final) as zf:
+        assert README_NAME not in zf.namelist()
 
 
 def test_verify_failure_leaves_no_final_file(tmp_path, monkeypatch):

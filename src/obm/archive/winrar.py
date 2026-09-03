@@ -1,8 +1,9 @@
 # ---
-# purpose: WinRAR backend — same create()/verify() signature as sevenzip.py and zipfallback.py
-# exports: create(), verify()
+# purpose: WinRAR backend — same create()/verify()/add_readme() signatures as sevenzip.py and zipfallback.py
+# exports: create(), verify(), add_readme()
 # depends: listfile.py
-# gotcha: the listfile MUST be UTF-16LE with a BOM — WinRAR silently mangles UTF-8 listfiles
+# gotcha: the listfile MUST be UTF-16LE with a BOM — WinRAR silently mangles UTF-8 listfiles.
+#         add_readme() uses -ep (strip paths) instead of -ep3 so the README lands at the archive root
 # ---
 from __future__ import annotations
 
@@ -30,6 +31,13 @@ def create(
             on_progress(len(files), len(files))
     finally:
         os.remove(listfile)
+
+
+def add_readme(exe_path: str, level: int, archive_path: str, readme_path: str) -> None:
+    cmd = [exe_path, "a", f"-m{level}", "-ep", archive_path, readme_path]
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if result.returncode != 0:
+        raise RuntimeError(f"rar readme add failed (exit {result.returncode}): {result.stderr.strip()}")
 
 
 def verify(exe_path: str, archive_path: str) -> bool:

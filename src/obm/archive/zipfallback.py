@@ -1,11 +1,12 @@
 # ---
-# purpose: stdlib zipfile backend — always available, same signature as sevenzip.py/winrar.py
-# exports: create(), verify()
+# purpose: stdlib zipfile backend — always available, same signatures as sevenzip.py/winrar.py
+# exports: create(), verify(), add_readme()
 # depends: naming.arcname_for, winapi/longpath.py
 # gotcha: opens files through to_extended() for long-path safety; exe_path is unused (no external tool)
 # ---
 from __future__ import annotations
 
+import os
 import zipfile
 from typing import Callable
 
@@ -27,6 +28,12 @@ def create(
             zf.write(to_extended(path), arcname=arcname_for(path))
             if on_progress:
                 on_progress(i, total)
+
+
+def add_readme(exe_path: str, level: int, archive_path: str, readme_path: str) -> None:
+    compression = zipfile.ZIP_STORED if level <= 0 else zipfile.ZIP_DEFLATED
+    with zipfile.ZipFile(archive_path, "a", compression=compression) as zf:
+        zf.write(readme_path, arcname=os.path.basename(readme_path))
 
 
 def verify(exe_path: str, archive_path: str) -> bool:
