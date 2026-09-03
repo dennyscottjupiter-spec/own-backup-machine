@@ -1,10 +1,12 @@
 # ---
-# purpose: shared CTkToplevel setup -- size, centering over the main window, and raise-to-front
+# purpose: shared CTkToplevel setup -- size, centering over the main window, raise-to-front and
+#          the Escape-closes-this-window binding every popup in the app gets
 # exports: place_over(), open_panel_window(), open_text_window()
 # depends: ui/theme.py
 # gotcha: CustomTkinter builds a CTkToplevel with a deferred internal update, so lift()/focus at
 #         construction time is undone ~200ms later and the window lands behind the main one --
-#         the raise MUST be re-issued from an after() callback
+#         the raise MUST be re-issued from an after() callback. Every popup goes through
+#         place_over(), which is what makes one Escape binding here cover all of them.
 # ---
 from __future__ import annotations
 
@@ -24,6 +26,7 @@ def place_over(win: ctk.CTkToplevel, master, width: int, height: int) -> None:
     x = max(mx + (mw - width) // 2, 0)
     y = max(my + (mh - height) // 2, 0)
     win.geometry(f"{width}x{height}+{x}+{y}")
+    win.bind("<Escape>", lambda _event: win.destroy())
     _raise(win)
     win.after(RAISE_DELAY_MS, lambda: _raise(win))
 
