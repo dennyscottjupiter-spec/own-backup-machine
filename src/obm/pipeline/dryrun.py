@@ -46,6 +46,9 @@ def run(cfg: config_mod.Config) -> DryRunResult:
                 else:
                     all_issues.append(item)
 
+    # off the Tk thread on purpose: the UI lists issues biggest-first and needs their sizes
+    issues_mod.resolve_sizes(all_issues)
+
     for carried in carryover.to_candidates(carryover.load()):
         carried.tags = classify.classify_tags(
             carried.attributes, carried.size, cfg.big_file_mb, existing=carried.tags

@@ -1,9 +1,11 @@
 # ---
-# purpose: virtualized top-N scan-issue list, plus a Copy button that puts every issue (not just
-#          the shown ones) on the clipboard -- issues are a first-class output, never swallowed
+# purpose: virtualized scan-issue list ordered biggest-file-first, plus a Copy button that puts
+#          every issue (not just the shown ones) on the clipboard -- issues are a first-class
+#          output, never swallowed
 # exports: IssuesPanel
 # depends: scan/issues.py, ui/panel_header.py
-# gotcha: the Copy button is packed after the header's Expand button so it lands to its left
+# gotcha: the Copy button is packed after the header's Expand button so it lands to its left.
+#         Sizes come from ScanIssue.size, resolved in the scan worker -- never stat here.
 # ---
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import customtkinter as ctk
 
 from .. import humanize
 from ..models import DryRunResult
-from ..scan.issues import KIND_LABELS, report
+from ..scan.issues import KIND_LABELS, by_size, report, size_prefix
 from . import panel_header, theme
 
 MAX_SHOWN = 100
@@ -39,12 +41,12 @@ class IssuesPanel(ctk.CTkFrame):
         for child in self.list_frame.winfo_children():
             child.destroy()
 
-        issues = result.issues
+        issues = by_size(result.issues)
         for issue in issues[: self._max_shown]:
             label = KIND_LABELS.get(issue.kind, issue.kind)
             row = ctk.CTkLabel(
                 self.list_frame,
-                text=f"[{label}] {issue.path}",
+                text=f"[{size_prefix(issue)}] [{label}] {issue.path}",
                 text_color=theme.WARNING,
                 font=theme.body_font(11),
                 anchor="w",

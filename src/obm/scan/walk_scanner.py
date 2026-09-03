@@ -68,7 +68,7 @@ def scan(plan: VolumePlan) -> Iterator[CandidateFile | ScanIssue]:
                 st = e.stat(follow_symlinks=False)
                 if st.st_file_attributes & FILE_ATTRIBUTE_REPARSE_POINT:
                     if not is_legacy_junction(st.st_file_attributes):
-                        yield ScanIssue(display_path, "reparse", "junction/symlink skipped")
+                        yield ScanIssue(display_path, "reparse", "junction/symlink skipped", st.st_size)
                     continue
                 if e.is_dir(follow_symlinks=False):
                     if e.name.lower() in BLOCKED_DIR_NAMES:
