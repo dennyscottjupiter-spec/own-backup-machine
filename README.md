@@ -1,9 +1,38 @@
 # own-backup-machine
 
+## Running it
+
+Double-click `run.bat`. That's it — no install step required; it sets `PYTHONPATH` itself.
+
+- `run.bat` — normal launch. The scanner falls back to a full filesystem walk if the USN journal
+  isn't usable (no elevation).
+- `run-admin.bat` — self-elevating launch, needed only if you want the faster USN-journal scan
+  path (`scan.use_usn = true` in `config.toml`).
+
+First run creates `%LOCALAPPDATA%\own-backup-machine\config.toml` from `config.example.toml`.
+Pick where backups land with the **Save to** dropdown in the run bar, and use the **Settings**
+button in the app (or edit the file directly) for everything else.
+
+## What this is
+
 A Windows 11 backup tool that looks at every file on the drive, archives the ones that are not
 already in a backup, keeps the original folder structure, automatically filters out junk, and —
 before copying anything — shows a dark dashboard with charts and a treemap of exactly what is
 about to be backed up.
+
+## Minimal setup on target
+
+Nothing in the app is tied to the machine it was written on, so the repo runs as-is on any other
+Windows 11 box once Python and the one dependency are there:
+
+```powershell
+python -m pip install customtkinter==5.2.2
+$env:PYTHONPATH="<repo>\src"; python -m obm --doctor
+```
+
+`--doctor` reports drives, elevation, the detected archiver and whether the destination is
+reachable — run it before the first real backup. Note that state lives in that machine's
+`%LOCALAPPDATA%`, so a fresh install has no delta baseline and the first run considers every file.
 
 ## Why
 
@@ -52,19 +81,6 @@ Delta-only backup engines already exist (restic, Kopia, rclone, Syncthing...). W
   ```
 - 7-Zip or WinRAR for compressed archives (optional — falls back to the stdlib `zipfile` module
   if neither is found).
-
-## Running it
-
-Double-click `run.bat`. That's it — no install step required; it sets `PYTHONPATH` itself.
-
-- `run.bat` — normal launch. The scanner falls back to a full filesystem walk if the USN journal
-  isn't usable (no elevation).
-- `run-admin.bat` — self-elevating launch, needed only if you want the faster USN-journal scan
-  path (`scan.use_usn = true` in `config.toml`).
-
-First run creates `%LOCALAPPDATA%\own-backup-machine\config.toml` from `config.example.toml`.
-Pick where backups land with the **Save to** dropdown in the run bar, and use the **Settings**
-button in the app (or edit the file directly) for everything else.
 
 ## CLI
 
