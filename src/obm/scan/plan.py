@@ -22,33 +22,33 @@ from .usn_scanner import scan as usn_scan
 from .walk_scanner import scan as walk_scan
 
 
-def _walk_plan(v: VolumeInfo, vol_roots: list[str], cutoff_ns: int, reason: str, cursor: int = 0) -> VolumePlan:
+def _walk_plan(v: VolumeInfo, vol_roots: list[str], reason: str, cursor: int = 0) -> VolumePlan:
     return VolumePlan(
         letter=v.letter, guid_path=v.guid_path, fs_name=v.fs_name, method="walk",
-        fallback_reason=reason, cursor=cursor, walk_cutoff_ns=cutoff_ns, roots=vol_roots,
+        fallback_reason=reason, cursor=cursor, roots=vol_roots,
     )
 
 
-def _usn_or_walk_plan(v: VolumeInfo, vol_roots: list[str], cutoff_ns: int, stored: VolumeState | None) -> VolumePlan:
+def _usn_or_walk_plan(v: VolumeInfo, vol_roots: list[str], stored: VolumeState | None) -> VolumePlan:
     try:
         handle = usn_journal.open_volume(v.letter)
     except OSError as e:
-        return _walk_plan(v, vol_roots, cutoff_ns, f"cannot open volume: {e}")
+        return _walk_plan(v, vol_roots, f"cannot open volume: {e}")
 
     try:
         info = usn_journal.query_journal(handle)
     except OSError as e:
-        return _walk_plan(v, vol_roots, cutoff_ns, f"journal query failed: {e}")
+        return _walk_plan(v, vol_roots, f"journal query failed: {e}")
     finally:
         k32.CloseHandle(handle)
 
     method, reason = cursors_mod.decide(stored, info.journal_id, info.lowest_valid_usn, info.next_usn)
     if method == "walk":
-        return _walk_plan(v, vol_roots, cutoff_ns, reason)
+        return _walk_plan(v, vol_roots, reason)
 
     return VolumePlan(
         letter=v.letter, guid_path=v.guid_path, fs_name=v.fs_name, method="usn",
-        fallback_reason=reason, cursor=stored.next_usn, walk_cutoff_ns=cutoff_ns, roots=vol_roots,
+        fallback_reason=reason, cursor=stored.next_usn, roots=vol_roots,
     )
 
 
@@ -67,14 +67,13 @@ def build_plan(
             continue
 
         stored = stored_states.get(v.guid_path)
-        cutoff_ns = cursors_mod.walk_cutoff_ns(stored)
 
         if not cfg.use_usn:
-            plans.append(_walk_plan(v, vol_roots, cutoff_ns, "usn disabled in config"))
+            plans.append(_walk_plan(v, vol_roots, "usn disabled in config"))
         elif not v.usn_capable:
-            plans.append(_walk_plan(v, vol_roots, cutoff_ns, "volume not usn-capable"))
+            plans.append(_walk_plan(v, vol_roots, "volume not usn-capable"))
         else:
-            plans.append(_usn_or_walk_plan(v, vol_roots, cutoff_ns, stored))
+            plans.append(_usn_or_walk_plan(v, vol_roots, stored))
 
     return plans
 
@@ -91,7 +90,6 @@ def compare_scanners_cli() -> int:
             continue
 
         stored = app_state.volumes.get(v.guid_path)
-        cutoff_ns = cursors_mod.walk_cutoff_ns(stored)
         vol_roots = roots.volume_roots(cfg, [v]).get(v.letter, [v.letter + "\\"])
 
         try:
@@ -109,10 +107,10 @@ def compare_scanners_cli() -> int:
 
         start_usn = stored.next_usn if (stored and stored.journal_id == info.journal_id) else info.lowest_valid_usn
 
-        walk_plan = _walk_plan(v, vol_roots, cutoff_ns, "compare")
+        walk_plan = _walk_plan(v, vol_roots, "compare")
         usn_plan = VolumePlan(
             letter=v.letter, guid_path=v.guid_path, fs_name=v.fs_name, method="usn",
-            fallback_reason="compare", cursor=start_usn, walk_cutoff_ns=cutoff_ns, roots=vol_roots,
+            fallback_reason="compare", cursor=start_usn, roots=vol_roots,
         )
 
         walk_paths = {c.path.lower() for c in walk_scan(walk_plan) if isinstance(c, CandidateFile)}

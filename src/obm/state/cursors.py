@@ -1,8 +1,10 @@
 # ---
 # purpose: per-volume-GUID cursor bookkeeping + the USN validity decision, a pure function
-# exports: decide(), walk_cutoff_ns(), now_iso(), mark_run()
+# exports: decide(), now_iso(), mark_run()
 # depends: schema.py
-# gotcha: decide() takes no ctypes/journal handle — this is why it's testable with zero USN code
+# gotcha: decide() takes no ctypes/journal handle — this is why it's testable with zero USN code.
+#         last_run_utc is a DISPLAY timestamp only: it must never gate which files a walk yields,
+#         or everything a run did not archive becomes invisible forever.
 # ---
 from __future__ import annotations
 
@@ -26,13 +28,6 @@ def decide(
     if stored.next_usn > queried_next_usn:
         return "walk", "journal rewound"
     return "usn", "cursor valid"
-
-
-def walk_cutoff_ns(stored: VolumeState | None) -> int:
-    if stored is None or not stored.last_run_utc:
-        return 0
-    dt = datetime.fromisoformat(stored.last_run_utc)
-    return int(dt.timestamp() * 1_000_000_000)
 
 
 def now_iso() -> str:

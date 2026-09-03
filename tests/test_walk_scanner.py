@@ -7,25 +7,23 @@ from obm.winapi.constants import FILE_ATTRIBUTE_REPARSE_POINT
 from obm.winapi.longpath import to_extended
 
 
-def _plan(root, cutoff_ns=0):
+def _plan(root):
     return VolumePlan(letter="C:", guid_path="", fs_name="NTFS", method="walk",
-                       fallback_reason="test", cursor=0, walk_cutoff_ns=cutoff_ns, roots=[str(root)])
+                       fallback_reason="test", cursor=0, roots=[str(root)])
 
 
-def test_mtime_cutoff_boundary(tmp_path):
-    old_file = tmp_path / "old.txt"
-    new_file = tmp_path / "new.txt"
-    old_file.write_text("old")
-    new_file.write_text("new")
+def test_age_never_hides_a_file(tmp_path):
+    """The walk yields EVERY file. Only the archived-fingerprint index may drop one."""
+    ancient = tmp_path / "ancient.txt"
+    fresh = tmp_path / "fresh.txt"
+    ancient.write_text("old")
+    fresh.write_text("new")
 
-    cutoff = time.time_ns()
-    os.utime(old_file, ns=(cutoff - 10_000_000_000, cutoff - 10_000_000_000))
-    os.utime(new_file, ns=(cutoff + 10_000_000_000, cutoff + 10_000_000_000))
+    decade_ago = time.time_ns() - 10 * 365 * 24 * 3600 * 1_000_000_000
+    os.utime(ancient, ns=(decade_ago, decade_ago))
 
-    plan = _plan(tmp_path, cutoff_ns=cutoff)
-    candidates = [i for i in walk_scanner.scan(plan) if isinstance(i, CandidateFile)]
-    names = {os.path.basename(c.path) for c in candidates}
-    assert names == {"new.txt"}
+    candidates = [i for i in walk_scanner.scan(_plan(tmp_path)) if isinstance(i, CandidateFile)]
+    assert {os.path.basename(c.path) for c in candidates} == {"ancient.txt", "fresh.txt"}
 
 
 def test_denied_subdirectory_reported_and_scan_continues(tmp_path, monkeypatch):

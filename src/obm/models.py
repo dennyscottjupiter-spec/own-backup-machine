@@ -41,7 +41,6 @@ class VolumePlan:
     method: str  # "usn" | "walk"
     fallback_reason: str
     cursor: int
-    walk_cutoff_ns: int
     roots: list[str]
 
 

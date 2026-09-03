@@ -2,7 +2,9 @@
 # purpose: sqlite index of files actually archived — path_key -> size, mtime_ns, hash
 # exports: Fingerprints
 # depends: paths.py
-# gotcha: only holds files actually archived; a JSON index of 200k rows would be rewritten wholesale every run
+# gotcha: this is the ONLY delta baseline -- it holds exactly the files actually archived, so a
+#         file the last run skipped is still offered by the next one. A JSON index of 200k rows
+#         would be rewritten wholesale every run.
 # ---
 from __future__ import annotations
 
@@ -34,6 +36,9 @@ class Fingerprints:
             "SELECT size, mtime_ns, hash FROM files WHERE path_key = ?", (path.lower(),)
         ).fetchone()
         return tuple(row) if row else None
+
+    def count(self) -> int:
+        return self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
 
     def upsert(self, path: str, size: int, mtime_ns: int, content_hash: str, run_id: str) -> None:
         self._conn.execute(

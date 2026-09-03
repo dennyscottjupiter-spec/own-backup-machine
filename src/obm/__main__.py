@@ -1,6 +1,6 @@
 # ---
-# purpose: CLI entry point — --doctor|--dry-run|--run|--compare-scanners, else GUI
-# depends: paths, config, logging_setup, winapi.volumes, archive.detect
+# purpose: CLI entry point — --doctor|--dry-run|--run|--compare-scanners|--reset-state, else GUI
+# depends: paths, config, logging_setup, winapi.volumes, archive.detect, state.reset
 # ---
 from __future__ import annotations
 
@@ -29,6 +29,11 @@ def _cmd_doctor() -> int:
     label = tool.exe_path or "stdlib zipfile"
     print(f"archiver    : {tool.name} ({label})")
 
+    from .state.fingerprints import Fingerprints
+
+    with Fingerprints() as fp:
+        print(f"baseline    : {fp.count()} files already archived (--reset-state clears it)")
+
     cfg = config_mod.load()
     dest = cfg.destination_path
     if not dest:
@@ -40,6 +45,18 @@ def _cmd_doctor() -> int:
     return 0
 
 
+def _cmd_reset_state() -> int:
+    from .state import reset
+
+    removed = reset.reset()
+    if not removed:
+        print("nothing to reset -- no baseline files exist yet")
+    for p in removed:
+        print(f"removed {p}")
+    print("the next run will consider every file on every configured volume again")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="obm")
     group = parser.add_mutually_exclusive_group()
@@ -48,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--run", action="store_true", help="scan, review is skipped, archive now")
     group.add_argument(
         "--compare-scanners", action="store_true", help="diff USN vs walk results"
+    )
+    group.add_argument(
+        "--reset-state",
+        action="store_true",
+        help="forget what has been archived, so the next run considers every file again",
     )
     return parser
 
@@ -72,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
         from .scan import plan as plan_mod
 
         return plan_mod.compare_scanners_cli()
+    if args.reset_state:
+        return _cmd_reset_state()
 
     from .ui import window
 

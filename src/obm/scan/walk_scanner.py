@@ -1,9 +1,11 @@
 # ---
-# purpose: iterative scandir walk, mtime cutoff, reparse-point skip — the reference scanner
+# purpose: iterative scandir walk, reparse-point skip — the reference scanner
 # exports: scan(), make_candidate(), is_legacy_junction()
 # depends: models.py, filter/rules.py, winapi/{constants,longpath}.py
-# gotcha: a denied directory never truncates its parent; reparse points are skipped AND reported,
-#         EXCEPT hidden+system ones -- Windows' own locale compat junctions, pure noise
+# gotcha: EVERY file is yielded, never filtered by mtime — the archived-fingerprint index is the
+#         only delta baseline (scan/confirm.py). A denied directory never truncates its parent;
+#         reparse points are skipped AND reported, EXCEPT hidden+system ones -- Windows' own
+#         locale compat junctions, pure noise
 # ---
 from __future__ import annotations
 
@@ -75,7 +77,7 @@ def scan(plan: VolumePlan) -> Iterator[CandidateFile | ScanIssue]:
                         continue
                     stack.append(e.path)
                     depth[e.path] = depth[current] + 1
-                elif st.st_mtime_ns >= plan.walk_cutoff_ns:
+                else:
                     yield make_candidate(display_path, st, source="walk")
             except OSError:
                 yield ScanIssue(display_path, "vanished", "")
