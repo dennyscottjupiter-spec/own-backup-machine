@@ -3,7 +3,7 @@
 # exports: BigFilesPanel
 # depends: ui/panel_header.py, humanize.py
 # gotcha: capped at max_shown widgets regardless of how many big files exist -- this is the panel
-#         half of the "no 100k widgets" freeze mitigation. Select all / none therefore acts on the
+#         half of the "no 100k widgets" freeze mitigation. The select toggle therefore acts on the
 #         FULL big-file list, not only on the rows that happen to have a checkbox on screen.
 # ---
 from __future__ import annotations
@@ -15,6 +15,8 @@ from ..models import DryRunResult
 from . import panel_header, theme
 
 MAX_SHOWN = 100
+SELECT_ALL = "Select all"
+SELECT_NONE = "Select none"
 
 
 class BigFilesPanel(ctk.CTkFrame):
@@ -23,25 +25,29 @@ class BigFilesPanel(ctk.CTkFrame):
         self._max_shown = max_shown
         self._big: list = []
         self._vars: list = []
+        self._all_selected = False
 
         header = panel_header.build(self, "Big files", on_expand)
-        ctk.CTkButton(
-            header, text="None", width=54, height=24, fg_color=theme.BG,
-            font=theme.body_font(11), command=lambda: self._set_all(False),
-        ).pack(side="right", padx=(4, 8))
-        ctk.CTkButton(
-            header, text="Select all", width=76, height=24, fg_color=theme.ACCENT,
-            font=theme.body_font(11), command=lambda: self._set_all(True),
-        ).pack(side="right", padx=4)
+        self.select_button = ctk.CTkButton(
+            header, text=SELECT_ALL, width=88, height=24, fg_color=theme.ACCENT,
+            font=theme.body_font(11), command=self._toggle_all,
+        )
+        self.select_button.pack(side="right", padx=(4, 8))
 
         self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.list_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+    def _toggle_all(self) -> None:
+        """One button: first press selects everything, the next press clears it again."""
+        self._set_all(not self._all_selected)
 
     def _set_all(self, selected: bool) -> None:
         for c in self._big:
             c.selected = selected
         for var in self._vars:
             var.set(selected)
+        self._all_selected = selected
+        self.select_button.configure(text=SELECT_NONE if selected else SELECT_ALL)
 
     def update_result(self, result: DryRunResult) -> None:
         for child in self.list_frame.winfo_children():
@@ -53,6 +59,9 @@ class BigFilesPanel(ctk.CTkFrame):
             key=lambda c: c.size,
             reverse=True,
         )
+        # the button label has to describe what the NEXT press does, so it follows the scan
+        self._all_selected = bool(self._big) and all(c.selected for c in self._big)
+        self.select_button.configure(text=SELECT_NONE if self._all_selected else SELECT_ALL)
 
         for c in self._big[: self._max_shown]:
             var = ctk.BooleanVar(value=c.selected)
