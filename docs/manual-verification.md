@@ -48,11 +48,22 @@ against production data.
       if OneDrive Backup is on there, they must be the redirected `...\OneDrive\Desktop` paths
       (`winapi/knownfolders.py` asks Windows; `%USERPROFILE%\Desktop` would be wrong).
 
-## The archive README and the finished-run screen
+## Nothing goes missing between runs
 
-- [ ] After a real run, `BACKUP-README.txt` is at the **root** of the archive (7-Zip and WinRAR
-      take different flags for that) and its folder tree matches what was actually archived,
-      with accented paths intact.
+- [ ] Run once with a whole category unticked in the Summary panel. On the **next** scan those
+      files are still offered, and their count matches. If they are gone, the delta baseline has
+      regressed to a clock again — see the invariant in `CLAUDE.md`.
+- [ ] `--reset-state` on DESKTOP, then `--dry-run`: the keep count is the whole drive's worth of
+      real files, spread across every category, not a handful.
+
+## The archive READMEs and the finished-run screen
+
+- [ ] After a real run, `BACKUP-README.txt` **and** `BACKUP-README.html` are at the **root** of
+      the archive (7-Zip and WinRAR take different flags for that) and the folder tree in each
+      matches what was actually archived, with accented paths intact.
+- [ ] Double-click `BACKUP-README.html` out of the archive: it opens with no network, the folder
+      tree folds open, and typing in the search box filters both the tree and the file list. On a
+      100k+ file run the page still opens quickly — that is what the 5,000-row cap is for.
 - [ ] The finish screen's **Open folder** opens Explorer with the archive already selected, and
       **Open archive** opens it in the installed archiver.
 - [ ] Force a failure (point the destination at a disconnected drive): the run bar line turns red
@@ -71,6 +82,9 @@ against production data.
       the real one.
 - [ ] UI stays responsive scanning the real `C:` (100k+ files) — no freeze while the worker
       thread scans, lays out the treemap, or archives.
+- [ ] The scan strip under the title bar counts up, names folders it is really reading, and — on
+      the second scan onwards — shows a percentage that reaches roughly 99% as the scan ends. A
+      percentage that finishes at 40% or sits pegged at 99% means `state.last_scan_files` is stale.
 - [ ] During a real multi-minute archive the run window keeps animating and its stage log
       advances past "Compressing" — the compression stage is one long blocking call in the
       backend, so it is the one that would expose a frozen UI.

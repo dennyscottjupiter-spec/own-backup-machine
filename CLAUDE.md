@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Windows-only delta backup tool: scan what changed since the last run, filter out junk with a
-built-in blocklist, show a dark CustomTkinter dashboard (treemap + charts) of what *would* be
-archived, then archive it with 7-Zip / WinRAR / stdlib `zipfile`.
+A Windows-only delta backup tool: walk every file on the drive, drop the ones already proven to
+be in an archive, filter out junk with a built-in blocklist, show a dark CustomTkinter dashboard
+(treemap + charts) of what *would* be archived, then archive it with 7-Zip / WinRAR / stdlib
+`zipfile`.
 
 Pure stdlib except `customtkinter==5.2.2`. Win32 access is `ctypes` against `kernel32.dll` — no
 `pywin32`.
@@ -22,6 +23,7 @@ python3 -m obm --doctor              # drives, elevation, archiver, destination 
 python3 -m obm --dry-run             # scan + report, archives nothing
 python3 -m obm --run                 # scan + archive
 python3 -m obm --compare-scanners    # USN vs walk diff (elevated) — the scan.use_usn release gate
+python3 -m obm --reset-state         # delete state.json + fingerprints + carryover (keeps history)
 python3 -m obm                       # GUI
 ```
 
@@ -55,8 +57,9 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
 - **`scan/`** — `plan.py` decides per volume whether to use the USN journal or a full walk, via the
   pure ladder in `state/cursors.py::decide()` (first run / journal recreated / wrapped / rewound →
   walk). `usn_scanner.py` and `walk_scanner.py` are interchangeable: both yield
-  `CandidateFile | ScanIssue` from one `VolumePlan`. `confirm.py` drops false positives whose
-  fingerprint is unchanged.
+  `CandidateFile | ScanIssue` from one `VolumePlan`. **`walk_scanner.py` yields every file it
+  finds — it has no mtime cutoff and must never grow one.** `confirm.py` drops false positives
+  whose fingerprint is unchanged; that is the only delta baseline there is.
 - **`filter/`** — `rules.py` is pure data (the blocklist). `matcher.py` checks **every ancestor
   directory name**, not just the leaf, so USN candidates (which never walk a directory tree) are
   judged identically to walked ones. An unrecognized extension is **kept**, never dropped.
@@ -64,13 +67,15 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   `execute.run()` archives and then commits cursors + fingerprints + history + carryover as one
   unit, only after a verified write, narrating each step through its `on_stage` callback. `aggregate.py` is the read-only summary used by CLI and UI.
 - **`archive/`** — three backends with identical `create()`/`verify()`/`add_readme()` signatures,
-  chosen by `detect.py`. `writer.py` compresses to local disk, adds `readme.py`'s
-  `BACKUP-README.txt` at the archive root, verifies, copies to the destination as `.part`, then
-  `os.replace`s it. `readme.py` is pure text assembly over the already-scanned records — it never
-  touches the filesystem.
+  chosen by `detect.py`. `writer.py` compresses to local disk, adds `BACKUP-README.txt` and
+  `BACKUP-README.html` at the archive root, verifies, copies to the destination as `.part`, then
+  `os.replace`s it. `tree.py` builds the folder tree both indexes render; `readme.py` is the text
+  one, `readme_html.py` + `report_style.py` the offline HTML page (its file list is capped at
+  `FILE_ROW_CAP` rows — the text file is the uncapped one). All of it is pure assembly over the
+  already-scanned records — none of it touches the filesystem.
 - **`state/`** — JSON `store.py` (atomic tmp+replace) for cursors, sqlite `fingerprints.py` for
   archived-file identity, `carryover.py` for files that were locked/denied and must be reinjected
-  next run regardless of cursor position.
+  next run regardless of cursor position, `reset.py` to throw all three away.
 - **`ui/`** — CustomTkinter. Scans and treemap layout run on a `Worker` thread and come back
   through a queue; Tk widgets are touched only from the Tk thread. `charts/squarify.py` and
   `charts/treemap_layout.py` are pure geometry with zero tkinter imports.
@@ -90,6 +95,10 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
   browser, and `window.py` persists each pick to `config.toml` immediately.
   `issues_panel.py` renders one collapsed row per root folder from `scan/issues.py::group_by_root`
   and builds a group's children only on its first expand.
+  `scan_banner.py` is the strip under the title bar while a scan runs: `dryrun.run`'s `on_scan`
+  callback fills a `ScanState`, the poll loop reads it, and the percentage is measured against
+  `state.last_scan_files` — with no previous scan the bar runs indeterminate rather than
+  inventing a number.
   `run_dialog.py` + `hourglass.py` are the live run window: the pipeline's `on_stage` messages
   land in `ProgressState` and the poll loop replays them as a stage log; its finish screen names
   the sidecar files and opens the archive through `open_path.py`.
@@ -99,7 +108,15 @@ winapi/  →  scan/  →  filter/  →  pipeline/  →  archive/ + state/
 
 ### Invariants worth not breaking
 
+- **A file is only skipped when a fingerprint proves it was archived.** Never re-introduce a
+  time-based cutoff: `state.last_run_utc` once gated the walk, so everything a run did not
+  archive — deselected categories, blocklisted files, whatever was locked — became invisible
+  forever and the tool quietly stopped being a backup. `tests/test_delta_baseline.py` guards this.
+  `state.last_scan_files` is the one clock-ish number that survives, and it only feeds the scan
+  percentage in the UI.
 - **Nothing outside `ui/` may import from `ui/`** — enforced by `tests/test_import_boundaries.py`.
+  `palette.py` sits at the top level for exactly this reason: `archive/readme_html.py` needs the
+  category colours the charts use.
   The one exemption is `__main__.py`, the composition root, which imports `ui/window.py` *inside*
   `main()` so a headless `--run` never imports tkinter.
 - **Fixed strips are packed before the expanding body** in `ui/window.py`. The dashboard's natural
