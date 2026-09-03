@@ -8,6 +8,8 @@
 #         touches the canvas directly, chunked at CHUNK_SIZE items per after_idle.
 #         refresh_selection() is debounced because build_tree() walks every candidate on the Tk
 #         thread, and the Summary type filter can fire it once per checkbox press.
+#         "Selected only" defaults ON: the treemap's job is to show what will be archived, and the
+#         switch is the escape hatch back to the full picture.
 # ---
 from __future__ import annotations
 
@@ -47,6 +49,13 @@ class TreemapPanel(ctk.CTkFrame):
             header, text="Show filtered", command=self._toggle_filtered, font=theme.body_font(11)
         )
         self.filtered_switch.pack(side="right", padx=8)
+        # on by default, which is the behaviour the panel has always had -- turning it off is the
+        # way back to the whole picture without re-ticking every category in the Summary
+        self.selected_switch = ctk.CTkSwitch(
+            header, text="Selected only", command=self._toggle_selected_only, font=theme.body_font(11)
+        )
+        self.selected_switch.select()
+        self.selected_switch.pack(side="right", padx=8)
 
         self.canvas = tk.Canvas(self, bg=theme.PANEL_BG, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True, padx=8, pady=8)
@@ -61,6 +70,7 @@ class TreemapPanel(ctk.CTkFrame):
 
         self._result = None
         self._show_filtered = False
+        self._selected_only = True
         self._breadcrumb: list[TreeNode] = []
         self._resize_job: str | None = None
         self._selection_job: str | None = None
@@ -87,7 +97,9 @@ class TreemapPanel(ctk.CTkFrame):
         # into, so the same path is walked again on the new tree and abandoned where it runs out
         drilled = [n.path for n in self._breadcrumb[1:]]
         root = build_tree(
-            self._result.candidates, include_dropped=self._show_filtered, selected_only=True
+            self._result.candidates,
+            include_dropped=self._show_filtered,
+            selected_only=self._selected_only,
         )
         self._breadcrumb = [root]
         for path in drilled:
@@ -100,6 +112,10 @@ class TreemapPanel(ctk.CTkFrame):
 
     def _toggle_filtered(self) -> None:
         self._show_filtered = bool(self.filtered_switch.get())
+        self._rebuild_tree()
+
+    def _toggle_selected_only(self) -> None:
+        self._selected_only = bool(self.selected_switch.get())
         self._rebuild_tree()
 
     def _on_tile_click(self, tile: Tile) -> None:
