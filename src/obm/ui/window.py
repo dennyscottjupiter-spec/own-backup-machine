@@ -147,7 +147,9 @@ class MainWindow(ctk.CTk):
             return
         kind, payload = item
         if kind == "error":
-            self.topbar.set_status(f"Scan failed: {payload}")
+            # also on the run bar, where the Copy button can hand over the traceback
+            self.topbar.set_status(f"Scan failed: {payload.message}")
+            self.runbar.set_status(f"Scan failed: {payload.message}", detail=payload.detail)
             return
         self.result = payload
         self.summary_panel.update_result(self.result)
@@ -182,11 +184,13 @@ class MainWindow(ctk.CTk):
 
         kind, payload = item
         if kind == "error":
-            message = f"Run failed: {payload}"
+            message = f"Run failed: {payload.message}"
+            self.runbar.set_status(message, detail=payload.detail)
+            self.run_dialog.finish(message, ok=False, detail=payload.detail)
         else:
             message = f"Archived {humanize.count(payload.file_count)} files -> {payload.archive_path}"
-        self.runbar.set_status(message)
-        self.run_dialog.finish(message, ok=kind != "error")
+            self.runbar.set_status(message)
+            self.run_dialog.finish(message, ok=True, archive_path=payload.archive_path)
         self.runbar.set_progress(0, 0)
         self.runbar.set_enabled(True)
 
