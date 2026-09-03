@@ -42,8 +42,8 @@ against production data.
 
 - [ ] The run bar's **Save to** dropdown lists the real mapped NAS letter, and picking it writes
       `[destination] path` into `config.toml` immediately (no Settings round-trip).
-- [ ] `X:` is still offered while the NAS is disconnected, and a run against it fails with a
-      readable message rather than a traceback.
+- [ ] `X:`, `D:` and `E:` are still offered while unmapped or absent, and a run against a missing
+      one fails with a readable message rather than a traceback.
 
 ## Hard part 4 — carryover
 
@@ -61,3 +61,6 @@ against production data.
 - [ ] During a real multi-minute archive the run window keeps animating and its stage log
       advances past "Compressing" — the compression stage is one long blocking call in the
       backend, so it is the one that would expose a frozen UI.
+- [ ] The Issues panel on a real `C:` scan shows a size for genuinely locked and access-denied
+      paths (`pagefile.sys` and friends), not `?` for everything — `scan/issues.py::resolve_sizes`
+      stats them, and its cap (`MAX_SIZE_LOOKUPS`) must not visibly slow the scan down.
