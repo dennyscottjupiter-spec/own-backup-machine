@@ -3,7 +3,7 @@
 #          issue (not just the shown ones) on the clipboard -- issues are a first-class output,
 #          never swallowed
 # exports: IssuesPanel
-# depends: scan/issues.py, ui/panel_header.py
+# depends: scan/issues.py, ui/{panel_header,copy_button}
 # gotcha: the Copy button is packed after the header's Expand button so it lands to its left.
 #         Group children are built on first expand, never up front -- a noisy volume can produce
 #         issues by the hundred-thousand and one widget each would freeze Tk.
@@ -17,10 +17,10 @@ from .. import humanize
 from ..models import DryRunResult
 from ..scan.issues import KIND_LABELS, IssueGroup, group_by_root, relative_to, report, size_prefix
 from . import panel_header, theme
+from .copy_button import CopyButton
 
 MAX_SHOWN = 100
 MAX_PER_GROUP = 200
-COPIED_RESET_MS = 1500
 COLLAPSED = "▶"
 EXPANDED = "▼"
 
@@ -32,10 +32,7 @@ class IssuesPanel(ctk.CTkFrame):
         self._result: DryRunResult | None = None
 
         header = panel_header.build(self, "Issues", on_expand)
-        self.copy_button = ctk.CTkButton(
-            header, text="⧉ Copy", width=72, height=24, fg_color=theme.BG,
-            font=theme.body_font(11), command=self._copy,
-        )
+        self.copy_button = CopyButton(header, self._report_text)
         self.copy_button.pack(side="right", padx=(0, 6))
 
         self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -125,14 +122,5 @@ class IssuesPanel(ctk.CTkFrame):
             anchor="w",
         ).pack(fill="x", anchor="w", padx=(indent, 0), pady=1)
 
-    def _copy(self) -> None:
-        issues = self._result.issues if self._result is not None else []
-        self.clipboard_clear()
-        self.clipboard_append(report(issues))
-        self.update()  # Windows only hands the clipboard over once the app has processed events
-        self.copy_button.configure(text="Copied")
-        self.after(COPIED_RESET_MS, self._reset_copy_label)
-
-    def _reset_copy_label(self) -> None:
-        if self.copy_button.winfo_exists():
-            self.copy_button.configure(text="⧉ Copy")
+    def _report_text(self) -> str:
+        return report(self._result.issues if self._result is not None else [])

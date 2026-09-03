@@ -1,7 +1,10 @@
 # ---
-# purpose: the Run button, its file/size caption, the destination picker, and a progress bar
+# purpose: the Run button, its file/size caption, the destination picker, a progress bar, and the
+#          failure line with the Copy button that makes it pasteable
 # exports: RunBar
-# depends: pipeline/selection.py, ui/dest_picker.py
+# depends: pipeline/selection.py, ui/{dest_picker,copy_button}
+# gotcha: the Copy button is packed only while a failure is showing -- an always-present one on a
+#         bar that is almost always fine would just be noise
 # ---
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ from .. import humanize
 from ..models import DryRunResult
 from ..pipeline.selection import selected_files
 from . import theme
+from .copy_button import CopyButton
 from .dest_picker import DestPicker
 
 
@@ -26,8 +30,10 @@ class RunBar(ctk.CTkFrame):
     ) -> None:
         super().__init__(master, fg_color=theme.PANEL_BG, corner_radius=8)
 
+        self._detail = ""
         self.status_label = ctk.CTkLabel(self, text="Scan to begin", font=theme.body_font(), text_color=theme.MUTED)
         self.status_label.pack(side="left", padx=16, pady=10)
+        self.copy_button = CopyButton(self, lambda: self._detail)
 
         self.progress_bar = ctk.CTkProgressBar(self, fg_color=theme.BG, progress_color=theme.ACCENT)
         self.progress_bar.set(0)
@@ -48,8 +54,17 @@ class RunBar(ctk.CTkFrame):
         total_bytes = sum(c.size for c in files)
         self.run_button.configure(text=f"Run — {humanize.count(len(files))} files, {humanize.size(total_bytes)}")
 
-    def set_status(self, text: str) -> None:
-        self.status_label.configure(text=text)
+    def set_status(self, text: str, detail: str = "") -> None:
+        """`detail` marks the line as a failure: it turns red and grows a Copy button that hands
+        over the full traceback, so a bug report is one click instead of a retyped screenshot."""
+        self.status_label.configure(text=text, text_color=theme.DANGER if detail else theme.MUTED)
+        self._detail = f"{text}\n\n{detail}" if detail else ""
+        if detail:
+            # before= is not cosmetic: packed last it would sit after the expand=True progress bar,
+            # find an exhausted cavity, and Tk would silently leave it unmapped
+            self.copy_button.pack(side="left", pady=10, before=self.progress_bar)
+        else:
+            self.copy_button.pack_forget()
 
     def set_progress(self, done: int, total: int) -> None:
         self.progress_bar.set(min(done / total, 1.0) if total > 0 else 0)
